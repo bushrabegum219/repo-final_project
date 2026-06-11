@@ -12,8 +12,7 @@ class AuthScreen extends StatefulWidget {
   State<AuthScreen> createState() => _AuthScreenState();
 }
 
-class _AuthScreenState extends State<AuthScreen>
-    with TickerProviderStateMixin {
+class _AuthScreenState extends State<AuthScreen> with TickerProviderStateMixin {
   bool _obscure = true;
   bool _pressed = false;
   bool _loading = false;
@@ -48,7 +47,7 @@ class _AuthScreenState extends State<AuthScreen>
     super.dispose();
   }
 
-  /// ✅ GOOGLE SIGN IN
+  /// GOOGLE SIGN IN
   Future<void> _signInWithGoogle() async {
     try {
       await Supabase.instance.client.auth.signInWithOAuth(
@@ -56,13 +55,14 @@ class _AuthScreenState extends State<AuthScreen>
         redirectTo: 'io.supabase.flutter://login-callback',
       );
     } catch (e) {
+      if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text("Google error: $e")),
       );
     }
   }
 
-  /// ✅ FACEBOOK SIGN IN
+  /// FACEBOOK SIGN IN
   Future<void> _signInWithFacebook() async {
     try {
       await Supabase.instance.client.auth.signInWithOAuth(
@@ -70,9 +70,52 @@ class _AuthScreenState extends State<AuthScreen>
         redirectTo: 'io.supabase.flutter://login-callback',
       );
     } catch (e) {
+      if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text("Facebook error: $e")),
       );
+    }
+  }
+
+  Future<void> _signUp() async {
+    HapticFeedback.lightImpact();
+
+    final email = emailController.text.trim();
+    final password = passController.text.trim();
+
+    if (email.isEmpty || password.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text("Fill all fields")),
+      );
+      return;
+    }
+
+    setState(() => _loading = true);
+
+    try {
+      final res = await Supabase.instance.client.auth.signUp(
+        email: email,
+        password: password,
+      );
+
+      if (!mounted) return;
+
+      if (res.user != null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text("Account created! Check your email 📩"),
+          ),
+        );
+      }
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text("Error: $e")),
+      );
+    }
+
+    if (mounted) {
+      setState(() => _loading = false);
     }
   }
 
@@ -105,32 +148,34 @@ class _AuthScreenState extends State<AuthScreen>
               children: [
                 _glow(-80, -60, 260, const Color(0xFF9F8CFF)),
                 _glow(null, -100, 300, const Color(0xFF6FE7DD), right: -50),
-
                 SafeArea(
                   child: Center(
                     child: SingleChildScrollView(
                       padding: const EdgeInsets.symmetric(horizontal: 24),
                       child: Column(
                         children: [
-                          const Icon(Icons.shield_rounded,
-                              size: 70, color: Color(0xFF8E7CFF)),
-
+                          const Icon(
+                            Icons.shield_rounded,
+                            size: 70,
+                            color: Color(0xFF8E7CFF),
+                          ),
                           const SizedBox(height: 16),
-
-                          Text("Welcome Back",
-                              style: GoogleFonts.poppins(
-                                  fontSize: 26,
-                                  fontWeight: FontWeight.w700)),
-
+                          Text(
+                            "Welcome Back",
+                            style: GoogleFonts.poppins(
+                              fontSize: 26,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
                           const SizedBox(height: 6),
-
-                          Text("CREATE YOUR AMAAN ACCOUNT",
-                              style: GoogleFonts.inter(
-                                  fontSize: 12,
-                                  color: Colors.black54)),
-
+                          Text(
+                            "CREATE YOUR AMAAN ACCOUNT",
+                            style: GoogleFonts.inter(
+                              fontSize: 12,
+                              color: Colors.black54,
+                            ),
+                          ),
                           const SizedBox(height: 28),
-
                           Container(
                             constraints: const BoxConstraints(maxWidth: 420),
                             padding: const EdgeInsets.all(20),
@@ -138,7 +183,8 @@ class _AuthScreenState extends State<AuthScreen>
                               borderRadius: BorderRadius.circular(28),
                               color: Colors.white.withOpacity(0.25),
                               border: Border.all(
-                                  color: Colors.white.withOpacity(0.3)),
+                                color: Colors.white.withOpacity(0.3),
+                              ),
                             ),
                             child: Column(
                               children: [
@@ -147,34 +193,29 @@ class _AuthScreenState extends State<AuthScreen>
                                   label: "Email",
                                   icon: Icons.email_outlined,
                                 ),
-
                                 const SizedBox(height: 16),
-
                                 _field(
                                   controller: passController,
                                   label: "Password",
                                   icon: Icons.lock_outline,
                                   isPassword: true,
                                 ),
-
                                 const SizedBox(height: 8),
-
-                                Align(
+                                const Align(
                                   alignment: Alignment.centerRight,
-                                  child: Text("Forgot Password?",
-                                      style: const TextStyle(
-                                          fontSize: 12,
-                                          color: Color(0xFF8E7CFF))),
+                                  child: Text(
+                                    "Forgot Password?",
+                                    style: TextStyle(
+                                      fontSize: 12,
+                                      color: Color(0xFF8E7CFF),
+                                    ),
+                                  ),
                                 ),
-
                                 const SizedBox(height: 20),
-
                                 _ctaButton("Sign Up"),
-
                                 const SizedBox(height: 18),
-
-                                Row(
-                                  children: const [
+                                const Row(
+                                  children: [
                                     Expanded(child: Divider()),
                                     Padding(
                                       padding:
@@ -184,27 +225,27 @@ class _AuthScreenState extends State<AuthScreen>
                                     Expanded(child: Divider()),
                                   ],
                                 ),
-
                                 const SizedBox(height: 16),
 
-                                /// ✅ GOOGLE BUTTON
+                                /// GOOGLE BUTTON
                                 GestureDetector(
                                   onTap: _signInWithGoogle,
-                                  child: _social("Continue with Google",
-                                      "assets/google.png"),
+                                  child: _social(
+                                    "Continue with Google",
+                                    "assets/google.png",
+                                  ),
                                 ),
-
                                 const SizedBox(height: 10),
 
-                                /// ✅ FACEBOOK BUTTON (WORKING)
+                                /// FACEBOOK BUTTON
                                 GestureDetector(
                                   onTap: _signInWithFacebook,
-                                  child: _social("Continue with Facebook",
-                                      "assets/facebook.png"),
+                                  child: _social(
+                                    "Continue with Facebook",
+                                    "assets/facebook.png",
+                                  ),
                                 ),
-
                                 const SizedBox(height: 18),
-
                                 Row(
                                   mainAxisAlignment: MainAxisAlignment.center,
                                   children: [
@@ -222,8 +263,9 @@ class _AuthScreenState extends State<AuthScreen>
                                       child: const Text(
                                         "Sign In",
                                         style: TextStyle(
-                                            color: Color(0xFF8E7CFF),
-                                            fontWeight: FontWeight.w600),
+                                          color: Color(0xFF8E7CFF),
+                                          fontWeight: FontWeight.w600,
+                                        ),
                                       ),
                                     ),
                                   ],
@@ -265,7 +307,8 @@ class _AuthScreenState extends State<AuthScreen>
         suffixIcon: isPassword
             ? IconButton(
                 icon: Icon(
-                    _obscure ? Icons.visibility_off : Icons.visibility),
+                  _obscure ? Icons.visibility_off : Icons.visibility,
+                ),
                 onPressed: () {
                   setState(() => _obscure = !_obscure);
                 },
@@ -281,46 +324,23 @@ class _AuthScreenState extends State<AuthScreen>
       onTapCancel: () => setState(() => _pressed = false),
       onTapUp: (_) async {
         setState(() => _pressed = false);
-        HapticFeedback.lightImpact();
-
-        final email = emailController.text.trim();
-        final password = passController.text.trim();
-
-        if (email.isEmpty || password.isEmpty) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text("Fill all fields")),
-          );
-          return;
-        }
-
-        setState(() => _loading = true);
-
-        try {
-          final res = await Supabase.instance.client.auth.signUp(
-            email: email,
-            password: password,
-          );
-
-          if (res.user != null) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(
-                  content: Text("Account created! Check your email 📩")),
-            );
-          }
-        } catch (e) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text("Error: $e")),
-          );
-        }
-
-        setState(() => _loading = false);
+        await _signUp();
       },
       child: AnimatedBuilder(
         animation: _shimmerController,
         builder: (_, __) {
           return AnimatedContainer(
             duration: const Duration(milliseconds: 180),
-            transform: Matrix4.identity()..scale(_pressed ? 0.95 : 1),
+
+            // FIXED FOR ANDROID EMULATOR
+            // Old code caused UnimplementedError:
+            // transform: Matrix4.identity()..scale(_pressed ? 0.95 : 1),
+            transform: Matrix4.diagonal3Values(
+              _pressed ? 0.95 : 1,
+              _pressed ? 0.95 : 1,
+              1,
+            ),
+
             decoration: BoxDecoration(
               borderRadius: BorderRadius.circular(25),
               gradient: LinearGradient(
@@ -338,11 +358,21 @@ class _AuthScreenState extends State<AuthScreen>
               padding: const EdgeInsets.symmetric(vertical: 14),
               child: Center(
                 child: _loading
-                    ? const CircularProgressIndicator(color: Colors.white)
-                    : Text(text,
+                    ? const SizedBox(
+                        height: 22,
+                        width: 22,
+                        child: CircularProgressIndicator(
+                          color: Colors.white,
+                          strokeWidth: 2.5,
+                        ),
+                      )
+                    : Text(
+                        text,
                         style: GoogleFonts.poppins(
-                            color: Colors.white,
-                            fontWeight: FontWeight.w600)),
+                          color: Colors.white,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
               ),
             ),
           );
@@ -365,15 +395,22 @@ class _AuthScreenState extends State<AuthScreen>
         children: [
           Image.asset(imagePath, height: 22),
           const SizedBox(width: 10),
-          Text(text,
-              style: GoogleFonts.poppins(fontWeight: FontWeight.w500)),
+          Text(
+            text,
+            style: GoogleFonts.poppins(fontWeight: FontWeight.w500),
+          ),
         ],
       ),
     );
   }
 
-  Widget _glow(double? top, double bottom, double size, Color color,
-      {double? right}) {
+  Widget _glow(
+    double? top,
+    double bottom,
+    double size,
+    Color color, {
+    double? right,
+  }) {
     return Positioned(
       top: top,
       bottom: top == null ? bottom : null,

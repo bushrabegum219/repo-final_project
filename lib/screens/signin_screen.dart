@@ -64,10 +64,77 @@ class _SignInScreenState extends State<SignInScreen>
     super.dispose();
   }
 
-  void _triggerPulse() async {
+  Future<void> _triggerPulse() async {
     HapticFeedback.lightImpact();
     await _pulseController.forward();
     await _pulseController.reverse();
+  }
+
+  Future<void> _login() async {
+    HapticFeedback.lightImpact();
+
+    final email = emailController.text.trim();
+    final password = passController.text.trim();
+
+    if (email.isEmpty || password.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text("Fill all fields")),
+      );
+      return;
+    }
+
+    setState(() => _loading = true);
+
+    try {
+      final res = await Supabase.instance.client.auth.signInWithPassword(
+        email: email,
+        password: password,
+      );
+
+      if (!mounted) return;
+
+      if (res.user != null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text("Login successful 🔥"),
+            backgroundColor: Color(0xFF6FE7DD),
+          ),
+        );
+
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(builder: (_) => const HomeScreen()),
+        );
+      }
+    } on AuthException catch (e) {
+      if (!mounted) return;
+
+      String message = "Something went wrong";
+
+      if (e.message.contains("Invalid login credentials")) {
+        message = "Wrong email or password";
+      }
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(message),
+          backgroundColor: const Color(0xFF8E7CFF),
+        ),
+      );
+    } catch (e) {
+      if (!mounted) return;
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text("Error: $e"),
+          backgroundColor: Colors.redAccent,
+        ),
+      );
+    }
+
+    if (mounted) {
+      setState(() => _loading = false);
+    }
   }
 
   @override
@@ -99,7 +166,6 @@ class _SignInScreenState extends State<SignInScreen>
               children: [
                 _glow(-80, -60, 260, const Color(0xFF9F8CFF)),
                 _glow(null, -100, 300, const Color(0xFF6FE7DD), right: -50),
-
                 SafeArea(
                   child: Center(
                     child: SingleChildScrollView(
@@ -111,12 +177,14 @@ class _SignInScreenState extends State<SignInScreen>
                             child: AnimatedBuilder(
                               animation: Listenable.merge([
                                 _floatController,
-                                _pulseController
+                                _pulseController,
                               ]),
                               builder: (_, child) {
                                 return Transform.translate(
                                   offset: Offset(
-                                      0, -8 * _floatController.value),
+                                    0,
+                                    -8 * _floatController.value,
+                                  ),
                                   child: Transform.scale(
                                     scale: _pulseController.value,
                                     child: child,
@@ -161,32 +229,32 @@ class _SignInScreenState extends State<SignInScreen>
                               ),
                             ),
                           ),
-
                           const SizedBox(height: 18),
-
-                          Text("Welcome Back",
-                              style: GoogleFonts.poppins(
-                                  fontSize: 26,
-                                  fontWeight: FontWeight.w700)),
-
+                          Text(
+                            "Welcome Back",
+                            style: GoogleFonts.poppins(
+                              fontSize: 26,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
                           const SizedBox(height: 6),
-
-                          Text("LOGIN TO CONTINUE",
-                              style: GoogleFonts.inter(
-                                  fontSize: 12,
-                                  color: Colors.black54)),
-
+                          Text(
+                            "LOGIN TO CONTINUE",
+                            style: GoogleFonts.inter(
+                              fontSize: 12,
+                              color: Colors.black54,
+                            ),
+                          ),
                           const SizedBox(height: 28),
-
                           Container(
-                            constraints:
-                                const BoxConstraints(maxWidth: 420),
+                            constraints: const BoxConstraints(maxWidth: 420),
                             padding: const EdgeInsets.all(20),
                             decoration: BoxDecoration(
                               borderRadius: BorderRadius.circular(28),
                               color: Colors.white.withOpacity(0.25),
                               border: Border.all(
-                                  color: Colors.white.withOpacity(0.3)),
+                                color: Colors.white.withOpacity(0.3),
+                              ),
                             ),
                             child: Column(
                               children: [
@@ -205,19 +273,21 @@ class _SignInScreenState extends State<SignInScreen>
                                 const SizedBox(height: 8),
                                 const Align(
                                   alignment: Alignment.centerRight,
-                                  child: Text("Forgot Password?",
-                                      style: TextStyle(
-                                          fontSize: 12,
-                                          color: Color(0xFF8E7CFF))),
+                                  child: Text(
+                                    "Forgot Password?",
+                                    style: TextStyle(
+                                      fontSize: 12,
+                                      color: Color(0xFF8E7CFF),
+                                    ),
+                                  ),
                                 ),
                                 const SizedBox(height: 20),
                                 _ctaButton("Login"),
                                 const SizedBox(height: 12),
                                 TextButton(
-                                  onPressed: () =>
-                                      Navigator.pop(context),
+                                  onPressed: () => Navigator.pop(context),
                                   child: const Text("Back"),
-                                )
+                                ),
                               ],
                             ),
                           ),
@@ -254,9 +324,9 @@ class _SignInScreenState extends State<SignInScreen>
         ),
         suffixIcon: isPassword
             ? IconButton(
-                icon: Icon(_obscure
-                    ? Icons.visibility_off
-                    : Icons.visibility),
+                icon: Icon(
+                  _obscure ? Icons.visibility_off : Icons.visibility,
+                ),
                 onPressed: () {
                   setState(() => _obscure = !_obscure);
                 },
@@ -266,69 +336,29 @@ class _SignInScreenState extends State<SignInScreen>
     );
   }
 
-  /// ✅ FINAL LOGIN BUTTON (FULLY CORRECT)
   Widget _ctaButton(String text) {
     return GestureDetector(
       onTapDown: (_) => setState(() => _pressed = true),
       onTapCancel: () => setState(() => _pressed = false),
       onTapUp: (_) async {
         setState(() => _pressed = false);
-        HapticFeedback.lightImpact();
-
-        setState(() => _loading = true);
-
-        try {
-          final res = await Supabase.instance.client.auth
-              .signInWithPassword(
-            email: emailController.text.trim(),
-            password: passController.text.trim(),
-          );
-
-          if (res.user != null) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(
-                content: Text("Login successful 🔥"),
-                backgroundColor: Color(0xFF6FE7DD),
-              ),
-            );
-
-            Navigator.pushReplacement(
-              context,
-              MaterialPageRoute(
-                  builder: (_) => const HomeScreen()),
-            );
-          }
-        } on AuthException catch (e) {
-          String message = "Something went wrong";
-
-          if (e.message.contains("Invalid login credentials")) {
-            message = "Wrong email or password";
-          }
-
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text(message),
-              backgroundColor: const Color(0xFF8E7CFF),
-            ),
-          );
-        } catch (e) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text("Error: $e"),
-              backgroundColor: Colors.redAccent,
-            ),
-          );
-        }
-
-        setState(() => _loading = false);
+        await _login();
       },
       child: AnimatedBuilder(
         animation: _shimmerController,
         builder: (_, __) {
           return AnimatedContainer(
             duration: const Duration(milliseconds: 180),
-            transform: Matrix4.identity()
-              ..scale(_pressed ? 0.95 : 1),
+
+            // FIXED FOR ANDROID EMULATOR
+            // Old code caused UnimplementedError:
+            // transform: Matrix4.identity()..scale(_pressed ? 0.95 : 1),
+            transform: Matrix4.diagonal3Values(
+              _pressed ? 0.95 : 1,
+              _pressed ? 0.95 : 1,
+              1,
+            ),
+
             decoration: BoxDecoration(
               borderRadius: BorderRadius.circular(25),
               gradient: LinearGradient(
@@ -354,10 +384,13 @@ class _SignInScreenState extends State<SignInScreen>
                           color: Colors.white,
                         ),
                       )
-                    : Text(text,
+                    : Text(
+                        text,
                         style: GoogleFonts.poppins(
-                            color: Colors.white,
-                            fontWeight: FontWeight.w600)),
+                          color: Colors.white,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
               ),
             ),
           );
@@ -366,8 +399,13 @@ class _SignInScreenState extends State<SignInScreen>
     );
   }
 
-  Widget _glow(double? top, double bottom, double size, Color color,
-      {double? right}) {
+  Widget _glow(
+    double? top,
+    double bottom,
+    double size,
+    Color color, {
+    double? right,
+  }) {
     return Positioned(
       top: top,
       bottom: top == null ? bottom : null,
