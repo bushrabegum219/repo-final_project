@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:amaan_app/screens/intro_screen.dart';
-import 'package:amaan_app/screens/home_screen.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -19,13 +18,9 @@ class AmaanApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final session = Supabase.instance.client.auth.currentSession;
-
-    return MaterialApp(
+    return const MaterialApp(
       debugShowCheckedModeBanner: false,
-      home: session != null
-          ? const HomeScreen() // ✅ already logged in
-          : const IntroScreen(), // ❌ not logged in
+      home: IntroScreen(),
     );
   }
 }
