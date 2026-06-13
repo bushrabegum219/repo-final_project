@@ -17,6 +17,13 @@ dependencies:
   google_fonts: ^8.0.2
   supabase_flutter: ^2.5.6   
   shared_preferences: ^2.5.5
+  geolocator: ^14.0.2
+  connectivity_plus: ^7.1.1
+  url_launcher: ^6.3.2
+  geocoding: ^4.0.0
+  flutter_map: ^8.3.0
+  latlong2: ^0.9.1
+  http: ^1.6.0
 
 dev_dependencies:
   flutter_test:
