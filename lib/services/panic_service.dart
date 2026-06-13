@@ -79,7 +79,10 @@ final alertMessage =
     );
 
     print('STEP 5.1: emergency SMS sent to trusted contacts');
-
+await _trySendPushNotification(
+  locationLink: locationLink,
+  liveTrackingToken: liveTrackingToken,
+);
     await _trySavePanicAlertOnline(
       userId: userId,
       latitude: position.latitude,
@@ -180,4 +183,40 @@ final alertMessage =
       print(e);
     }
   }
+  Future<void> _trySendPushNotification({
+  required String locationLink,
+  required String? liveTrackingToken,
+}) async {
+  try {
+    final accessToken = supabase.auth.currentSession?.accessToken;
+
+    if (accessToken == null || accessToken.isEmpty) {
+      print('PUSH STEP: no user access token found');
+      return;
+    }
+
+   final userId = supabase.auth.currentUser?.id;
+
+if (userId == null || userId.isEmpty) {
+  print('PUSH STEP: no user id found');
+  return;
+}
+
+final response = await supabase.functions.invoke(
+  'send-panic-push',
+  body: {
+    'panicUserId': userId,
+    'locationLink': locationLink,
+    'liveTrackingToken': liveTrackingToken ?? '',
+  },
+);
+
+    print('PUSH STEP: Edge Function called');
+    print(response.data);
+  } catch (e) {
+    print('PUSH STEP: Edge Function failed');
+    print(e);
+  }
+}
+
 }
