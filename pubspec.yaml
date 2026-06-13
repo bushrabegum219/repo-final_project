@@ -38,4 +38,5 @@ flutter:
     - assets/shield.json
     - assets/google.png
     - assets/facebook.png
+    - assets/sos_alarm.mp3
 
