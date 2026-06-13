@@ -27,6 +27,11 @@ dependencies:
   just_audio: ^0.10.5
   flutter_foreground_task: ^9.2.2
   url_launcher: ^6.3.2
+  connectivity_plus: ^7.1.1
+  geocoding: ^4.0.0
+  flutter_map: ^8.3.0
+  latlong2: ^0.9.1
+  http: ^1.6.0
 
 dev_dependencies:
   flutter_test:

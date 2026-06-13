@@ -1,10 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
-import 'package:amaan_app/services/notification_service.dart';
+
 import 'firebase_options.dart';
 import 'package:amaan_app/screens/intro_screen.dart';
 import 'package:amaan_app/screens/home_screen.dart';
+import 'package:amaan_app/services/notification_service.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -15,8 +16,10 @@ Future<void> main() async {
 
   await Supabase.initialize(
     url: 'https://kcaevbybsqokbteunsmg.supabase.co',
-    anonKey: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImtjYWV2Ynlic3Fva2J0ZXVuc21nIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY3NzE1MjAsImV4cCI6MjA5MjM0NzUyMH0.c0Jm7o6Ekekdxy-IYI-1HWeNpl8DfbiQFgGXrAdPeuk',
+    anonKey:
+        'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImtjYWV2Ynlic3Fva2J0ZXVuc21nIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY3NzE1MjAsImV4cCI6MjA5MjM0NzUyMH0.c0Jm7o6Ekekdxy-IYI-1HWeNpl8DfbiQFgGXrAdPeuk',
   );
+
   await NotificationService().setupPushNotifications();
 
   runApp(const AmaanApp());
