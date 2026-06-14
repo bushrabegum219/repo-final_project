@@ -24,6 +24,10 @@ class _SosAlarmScreenState extends State<SosAlarmScreen> {
   bool _isAlarmActive = false;
   bool _isLoading = false;
   bool _isOnline = false;
+  bool _soundVibrationOn = true;
+  String _defaultSosMessage =
+    "Emergency! I need help. Please contact me as soon as possible.";
+  bool _autoShareLocationOn = true;
 
   Timer? _vibrationTimer;
 
@@ -39,6 +43,7 @@ class _SosAlarmScreenState extends State<SosAlarmScreen> {
   void initState() {
     super.initState();
     _checkOnlineStatus();
+     _loadUserSettings();
   }
 
   @override
@@ -50,18 +55,52 @@ class _SosAlarmScreenState extends State<SosAlarmScreen> {
   }
 
   Future<void> _checkOnlineStatus() async {
-    final result = await Connectivity().checkConnectivity();
+  final result = await Connectivity().checkConnectivity();
+
+  if (!mounted) return;
+
+  setState(() {
+    _isOnline = !result.contains(ConnectivityResult.none);
+  });
+}
+
+Future<void> _loadUserSettings() async {
+  final user = Supabase.instance.client.auth.currentUser;
+
+  if (user == null) return;
+
+  try {
+    final data = await Supabase.instance.client
+        .from('user_settings')
+        .select('sound_vibration_on, default_sos_message, auto_share_location_on')
+        .eq('user_id', user.id)
+        .maybeSingle();
+
+    if (data == null) return;
 
     if (!mounted) return;
 
     setState(() {
-      _isOnline = !result.contains(ConnectivityResult.none);
+      _soundVibrationOn = data['sound_vibration_on'] == true;
+      _defaultSosMessage = data['default_sos_message']?.toString() ??
+          "Emergency! I need help. Please contact me as soon as possible.";
+      _autoShareLocationOn = data['auto_share_location_on'] == true;
     });
+  } catch (e) {
+    debugPrint("SOS SETTINGS LOAD ERROR: $e");
   }
+}
+
+
 
   Future<void> _startAlarmSoundLoop() async {
-    try {
-      await _audioPlayer.stop();
+  if (!_soundVibrationOn) {
+    debugPrint("SOS sound and vibration disabled from settings");
+    return;
+  }
+
+  try {
+    await _audioPlayer.stop();
       await _audioPlayer.setReleaseMode(ReleaseMode.loop);
       await _audioPlayer.setVolume(1.0);
       await _audioPlayer.play(AssetSource('sos_alarm.mp3'));
@@ -467,28 +506,28 @@ class _SosAlarmScreenState extends State<SosAlarmScreen> {
   }
 
   Future<void> _copySosInfo() async {
-    if (_latitude == null || _longitude == null) {
-      _showMessage("No SOS location available to copy");
-      return;
-    }
+  final locationText = (_latitude == null || _longitude == null)
+      ? "Location not available"
+      : "$_address\nCoordinates: ${_latitude!.toStringAsFixed(6)}, ${_longitude!.toStringAsFixed(6)}";
 
-    final accuracyText = _accuracy == null
-        ? "Accuracy not available"
-        : "${_accuracy!.toStringAsFixed(1)} meters";
+  final accuracyText = _accuracy == null
+      ? "Accuracy not available"
+      : "Accuracy: ${_accuracy!.toStringAsFixed(1)} meters";
 
-    final sosText =
-        "🚨 SOS Emergency Alert\n"
-        "Location: $_address\n"
-        "Coordinates: ${_latitude!.toStringAsFixed(6)}, ${_longitude!.toStringAsFixed(6)}\n"
-        "Accuracy: $accuracyText";
+  final sosText = _autoShareLocationOn
+      ? "🚨 SOS Emergency Alert\n"
+          "$_defaultSosMessage\n\n"
+          "Location: $locationText\n"
+          "$accuracyText"
+      : "🚨 SOS Emergency Alert\n"
+          "$_defaultSosMessage";
 
-    await Clipboard.setData(
-      ClipboardData(text: sosText),
-    );
+  await Clipboard.setData(
+    ClipboardData(text: sosText),
+  );
 
-    _showMessage("SOS info copied");
-  }
-
+  _showMessage("SOS info copied");
+}
   String _coordinateText() {
     if (_latitude == null || _longitude == null) {
       return "Coordinates not captured yet";
