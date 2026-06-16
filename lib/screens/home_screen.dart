@@ -1,9 +1,6 @@
 import 'package:flutter/material.dart';
-
 import 'panic_screen.dart' as panic;
 import 'trusted_circle_screen.dart' as trusted;
-import 'fake_call_screen.dart' as fake;
-import 'check_in_screen.dart' as checkin;
 import 'sos_alarm_screen.dart' as sos;
 import 'daily_reminder_screen.dart' as daily;
 import 'scam_detector_screen.dart' as scam;
@@ -78,7 +75,7 @@ class _HomeScreenState extends State<HomeScreen>
                 Text(
                   "Stay safe, connected, and prepared.",
                   style: TextStyle(
-                    color: Colors.white.withOpacity(0.82),
+                    color: const Color.fromARGB(255, 10, 10, 10).withOpacity(0.82),
                     fontSize: 13,
                     fontWeight: FontWeight.w500,
                   ),
@@ -135,7 +132,7 @@ class _HomeScreenState extends State<HomeScreen>
                                     Text(
                                       "Panic Alert",
                                       style: TextStyle(
-                                        color: Colors.white,
+                                        color: Color.fromARGB(255, 43, 42, 42),
                                         fontSize: 23,
                                         fontWeight: FontWeight.bold,
                                       ),
@@ -189,22 +186,7 @@ class _HomeScreenState extends State<HomeScreen>
                             _openScreen(trusted.TrustedCircleScreen()),
                       ),
                     ),
-                    const SizedBox(width: 10),
-                    Expanded(
-                      child: _QuickActionCard(
-                        icon: Icons.timer_rounded,
-                        title: "Check-in",
-                        onTap: () => _openScreen(checkin.CheckInScreen()),
-                      ),
-                    ),
-                    const SizedBox(width: 10),
-                    Expanded(
-                      child: _QuickActionCard(
-                        icon: Icons.phone_rounded,
-                        title: "Fake Call",
-                        onTap: () => _openScreen(fake.FakeCallScreen()),
-                      ),
-                    ),
+                    
                   ],
                 ),
 
