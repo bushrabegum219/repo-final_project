@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "602092023682",
+    "project_id": "amaan-f1345",
+    "storage_bucket": "amaan-f1345.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:602092023682:android:da42ed5d7e2999c657299b",
+        "android_client_info": {
+          "package_name": "com.example.amaan_app"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBBPE7N-Crm0_vu_rFnaFIpjSwwdv8idIg"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
