@@ -22,10 +22,12 @@ class MapScreen extends StatefulWidget {
 
 class _MapScreenState extends State<MapScreen> {
   final MapController _mapController = MapController();
+  final TextEditingController _tokenController = TextEditingController();
 
   bool _isLoading = false;
   bool _isOnline = false;
   bool _hasLocation = false;
+  bool _isLoadingTokenLocation = false;
 
   double? _latitude;
   double? _longitude;
@@ -438,6 +440,107 @@ class _MapScreenState extends State<MapScreen> {
       _showMessage("Saved locally, but Supabase save failed");
     }
   }
+  Future<void> _loadLiveLocationFromToken() async {
+  final token = _tokenController.text.trim();
+
+  if (token.isEmpty) {
+    _showMessage("Please paste a live tracking token first");
+    return;
+  }
+
+  if (_isLoadingTokenLocation) return;
+
+  setState(() {
+    _isLoadingTokenLocation = true;
+    _statusText = "Loading live tracking location...";
+    _subText = "Checking token from panic SMS";
+  });
+
+  try {
+    await _checkOnlineStatus();
+
+    if (!_isOnline) {
+      _showMessage("Internet is required to load live tracking token");
+      return;
+    }
+
+    final session = await Supabase.instance.client
+        .rpc(
+          'get_live_tracking_by_token',
+          params: {
+            'input_token': token,
+          },
+        )
+        .maybeSingle();
+
+    if (session == null) {
+      throw Exception("No live tracking session found for this token");
+    }
+
+    final latitudeValue = session['last_latitude'];
+    final longitudeValue = session['last_longitude'];
+    final accuracyValue = session['last_accuracy'];
+    final status = session['status']?.toString() ?? 'unknown';
+
+    if (latitudeValue == null || longitudeValue == null) {
+      throw Exception("Live location is not available yet");
+    }
+
+    final latitude = latitudeValue is num
+        ? latitudeValue.toDouble()
+        : double.parse(latitudeValue.toString());
+
+    final longitude = longitudeValue is num
+        ? longitudeValue.toDouble()
+        : double.parse(longitudeValue.toString());
+
+    final accuracy = accuracyValue == null
+        ? null
+        : accuracyValue is num
+            ? accuracyValue.toDouble()
+            : double.tryParse(accuracyValue.toString());
+
+    final address = await _getAddressFromCoordinates(
+      latitude,
+      longitude,
+    );
+
+    if (!mounted) return;
+
+    setState(() {
+      _latitude = latitude;
+      _longitude = longitude;
+      _accuracy = accuracy;
+      _address = address;
+      _hasLocation = true;
+      _statusText = status == 'active'
+          ? "Trusted live tracking active"
+          : "Trusted live session ended";
+      _subText = "Location loaded using panic SMS token";
+    });
+
+    _moveMapToLocation(latitude, longitude);
+
+    _showMessage("Live tracking location loaded");
+  } catch (e) {
+    debugPrint("LIVE TOKEN LOCATION ERROR: $e");
+
+    if (!mounted) return;
+
+    setState(() {
+      _statusText = "Could not load live token";
+      _subText = "Check the token and try again";
+    });
+
+    _showMessage("Could not load live location from token");
+  } finally {
+    if (!mounted) return;
+
+    setState(() {
+      _isLoadingTokenLocation = false;
+    });
+  }
+}
 
   Future<void> _showOfflineSavedLocation() async {
     final prefs = await SharedPreferences.getInstance();
@@ -839,6 +942,91 @@ class _MapScreenState extends State<MapScreen> {
       ),
     );
   }
+  Widget _liveTokenCard() {
+  return Container(
+    width: double.infinity,
+    padding: const EdgeInsets.all(14),
+    decoration: BoxDecoration(
+      color: const Color(0xFFF8F6FB),
+      borderRadius: BorderRadius.circular(18),
+      border: Border.all(
+        color: const Color(0xFFE8E0F2),
+        width: 1,
+      ),
+    ),
+    child: Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          "LIVE TRACKING TOKEN",
+          style: GoogleFonts.poppins(
+            color: const Color(0xFF9B7BE8),
+            fontSize: 10,
+            fontWeight: FontWeight.w800,
+            letterSpacing: 0.5,
+          ),
+        ),
+        const SizedBox(height: 8),
+        TextField(
+          controller: _tokenController,
+          decoration: InputDecoration(
+            hintText: "Paste token from panic SMS",
+            hintStyle: GoogleFonts.poppins(
+              color: Colors.black38,
+              fontSize: 12,
+              fontWeight: FontWeight.w500,
+            ),
+            filled: true,
+            fillColor: Colors.white,
+            contentPadding: const EdgeInsets.symmetric(
+              horizontal: 12,
+              vertical: 12,
+            ),
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(14),
+              borderSide: BorderSide.none,
+            ),
+          ),
+        ),
+        const SizedBox(height: 10),
+        GestureDetector(
+          onTap: _isLoadingTokenLocation ? null : _loadLiveLocationFromToken,
+          child: Container(
+            height: 44,
+            width: double.infinity,
+            decoration: BoxDecoration(
+              color: const Color(0xFF9B7BE8),
+              borderRadius: BorderRadius.circular(14),
+            ),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(
+                  _isLoadingTokenLocation
+                      ? Icons.hourglass_bottom_rounded
+                      : Icons.location_searching_rounded,
+                  color: Colors.white,
+                  size: 18,
+                ),
+                const SizedBox(width: 8),
+                Text(
+                  _isLoadingTokenLocation
+                      ? "Loading Live Location..."
+                      : "Load Live Location",
+                  style: GoogleFonts.poppins(
+                    color: Colors.white,
+                    fontSize: 12.5,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ],
+    ),
+  );
+}
 
   Widget _primaryButton() {
     return GestureDetector(
@@ -956,11 +1144,13 @@ class _MapScreenState extends State<MapScreen> {
               ),
               const SizedBox(height: 20),
               _locationCard(),
-              const SizedBox(height: 14),
-              _primaryButton(),
-              const SizedBox(height: 10),
-              _actionButton(
-                text: "Show Offline Saved Location",
+const SizedBox(height: 14),
+_liveTokenCard(),
+const SizedBox(height: 14),
+_primaryButton(),
+const SizedBox(height: 10),
+_actionButton(
+  text: "Show Offline Saved Location",
                 icon: Icons.offline_pin_rounded,
                 backgroundColor: const Color(0xFFFFEFE2),
                 textColor: const Color(0xFFFF9F43),
@@ -1011,6 +1201,11 @@ class _MapScreenState extends State<MapScreen> {
       ),
     );
   }
+  @override
+void dispose() {
+  _tokenController.dispose();
+  super.dispose();
+}
 
   @override
   Widget build(BuildContext context) {
