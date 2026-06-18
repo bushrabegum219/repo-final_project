@@ -8,6 +8,7 @@ import 'map_screen.dart' as map;
 import 'journal_screen.dart' as journal;
 import 'evidence_vault_screen.dart' as evidence;
 import 'settings_screen.dart' as settings;
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -63,25 +64,236 @@ class _HomeScreenState extends State<HomeScreen>
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 /// TOP TITLE
-                const Text(
-                  "Amaan Safety",
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontSize: 26,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  "Stay safe, connected, and prepared.",
-                  style: TextStyle(
-                    color: const Color.fromARGB(255, 10, 10, 10).withOpacity(0.82),
-                    fontSize: 13,
-                    fontWeight: FontWeight.w500,
-                  ),
-                ),
+                /// PERSONALIZED TOP HEADER
+/// PREMIUM PERSONALIZED TOP HEADER
+Builder(
+  builder: (context) {
+    final user = Supabase.instance.client.auth.currentUser;
+    final metadata = user?.userMetadata ?? const <String, dynamic>{};
 
-                const SizedBox(height: 24),
+    final firstName = (metadata['first_name'] ?? '').toString().trim();
+    final fullName = (metadata['full_name'] ?? metadata['name'] ?? '')
+        .toString()
+        .trim();
+    final emailName = user?.email?.split('@').first ?? 'friend';
+
+    final displayName = firstName.isNotEmpty
+        ? firstName
+        : fullName.isNotEmpty
+            ? fullName.split(' ').first
+            : emailName;
+
+    final hour = DateTime.now().hour;
+    final greeting = hour < 12
+        ? "Good morning"
+        : hour < 17
+            ? "Good afternoon"
+            : "Good evening";
+
+    final initial =
+        displayName.isNotEmpty ? displayName[0].toUpperCase() : "A";
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.fromLTRB(18, 18, 18, 16),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(32),
+        gradient: LinearGradient(
+          colors: [
+            Colors.white.withOpacity(0.34),
+            Colors.white.withOpacity(0.14),
+          ],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        border: Border.all(
+          color: Colors.white.withOpacity(0.40),
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: const Color(0xFF3D4DE8).withOpacity(0.18),
+            blurRadius: 34,
+            offset: const Offset(0, 18),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
+                decoration: BoxDecoration(
+                  color: Colors.white.withOpacity(0.28),
+                  borderRadius: BorderRadius.circular(100),
+                  border: Border.all(
+                    color: Colors.white.withOpacity(0.38),
+                  ),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Container(
+                      height: 7,
+                      width: 7,
+                      decoration: const BoxDecoration(
+                        color: Color(0xFF35E6A8),
+                        shape: BoxShape.circle,
+                      ),
+                    ),
+                    const SizedBox(width: 7),
+                    const Text(
+                      "Amaan Safety",
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 12,
+                        fontWeight: FontWeight.w800,
+                        letterSpacing: 0.2,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const Spacer(),
+              Container(
+                height: 48,
+                width: 48,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: Colors.white.withOpacity(0.92),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withOpacity(0.14),
+                      blurRadius: 22,
+                      offset: const Offset(0, 10),
+                    ),
+                  ],
+                ),
+                child: Center(
+                  child: Text(
+                    initial,
+                    style: const TextStyle(
+                      color: Color(0xFF635BFF),
+                      fontSize: 21,
+                      fontWeight: FontWeight.w900,
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 20),
+          Text(
+            "$greeting, $displayName",
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: const TextStyle(
+              color: Colors.white,
+              fontSize: 20,
+              fontWeight: FontWeight.w700,
+              letterSpacing: -0.2,
+            ),
+          ),
+          const SizedBox(height: 6),
+          const Text(
+            "Your safe space is ready.",
+            style: TextStyle(
+              color: Colors.white,
+              fontSize: 28,
+              height: 1.08,
+              fontWeight: FontWeight.w900,
+              letterSpacing: -0.7,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            "If you ever feel unsure, Amaan keeps your panic alert, location tools, and trusted circle close.",
+            style: TextStyle(
+              color: Colors.white.withOpacity(0.86),
+              fontSize: 13,
+              height: 1.35,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+          const SizedBox(height: 18),
+          Container(
+            padding: const EdgeInsets.all(14),
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(24),
+              color: const Color(0xFF18214D).withOpacity(0.20),
+              border: Border.all(
+                color: Colors.white.withOpacity(0.28),
+              ),
+            ),
+            child: Row(
+              children: [
+                Container(
+                  height: 46,
+                  width: 46,
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(17),
+                    gradient: const LinearGradient(
+                      colors: [
+                        Color(0xFF7C6BFF),
+                        Color(0xFF42E8D4),
+                      ],
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                    ),
+                    boxShadow: [
+                      BoxShadow(
+                        color: const Color(0xFF42E8D4).withOpacity(0.28),
+                        blurRadius: 18,
+                        offset: const Offset(0, 8),
+                      ),
+                    ],
+                  ),
+                  child: const Icon(
+                    Icons.shield_moon_rounded,
+                    color: Colors.white,
+                    size: 25,
+                  ),
+                ),
+                const SizedBox(width: 13),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text(
+                        "Guardian Mode Ready",
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 15,
+                          fontWeight: FontWeight.w900,
+                        ),
+                      ),
+                      const SizedBox(height: 5),
+                      Text(
+  "Panic Alert and Trusted Circle are ready whenever you need them.",
+  style: TextStyle(
+    color: Colors.white.withOpacity(0.90),
+    fontSize: 12,
+    height: 1.35,
+    fontWeight: FontWeight.w600,
+  ),
+),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  },
+),
+
+
+
+const SizedBox(height: 24),
 
                 /// HERO PANIC
                 AnimatedBuilder(
@@ -588,4 +800,24 @@ class _FadeSlideState extends State<_FadeSlide>
       child: SlideTransition(position: offset, child: widget.child),
     );
   }
+  Widget _safeChip(String text) {
+  return Container(
+    padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 5),
+    decoration: BoxDecoration(
+      color: Colors.white.withOpacity(0.18),
+      borderRadius: BorderRadius.circular(100),
+      border: Border.all(
+        color: Colors.white.withOpacity(0.22),
+      ),
+    ),
+    child: Text(
+      text,
+      style: TextStyle(
+        color: Colors.white.withOpacity(0.92),
+        fontSize: 11,
+        fontWeight: FontWeight.w700,
+      ),
+    ),
+  );
+}
 }
