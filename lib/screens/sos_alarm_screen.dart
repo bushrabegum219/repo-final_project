@@ -97,7 +97,8 @@ class _SosAlarmScreenState extends State<SosAlarmScreen> {
 
       setState(() {
         _soundVibrationOn = data['sound_vibration_on'] == true;
-        _defaultSosMessage = data['default_sos_message']?.toString() ??
+        _defaultSosMessage =
+            data['default_sos_message']?.toString() ??
             "Emergency! I need help. Please contact me as soon as possible.";
         _autoShareLocationOn = data['auto_share_location_on'] == true;
       });
@@ -121,12 +122,9 @@ class _SosAlarmScreenState extends State<SosAlarmScreen> {
       HapticFeedback.heavyImpact();
 
       _vibrationTimer?.cancel();
-      _vibrationTimer = Timer.periodic(
-        const Duration(seconds: 2),
-        (_) {
-          HapticFeedback.heavyImpact();
-        },
-      );
+      _vibrationTimer = Timer.periodic(const Duration(seconds: 2), (_) {
+        HapticFeedback.heavyImpact();
+      });
     } catch (e) {
       debugPrint("SOS AUDIO ERROR: $e");
       SystemSound.play(SystemSoundType.alert);
@@ -224,19 +222,21 @@ class _SosAlarmScreenState extends State<SosAlarmScreen> {
         "&addressdetails=1",
       );
 
-      final response = await http.get(
-        uri,
-        headers: {
-          "User-Agent": "AmaanSafetyApp/1.0",
-          "Accept": "application/json",
-          "Accept-Language": "en",
-        },
-      ).timeout(
-        const Duration(seconds: 10),
-        onTimeout: () {
-          throw Exception("OpenStreetMap SOS address lookup timed out");
-        },
-      );
+      final response = await http
+          .get(
+            uri,
+            headers: {
+              "User-Agent": "AmaanSafetyApp/1.0",
+              "Accept": "application/json",
+              "Accept-Language": "en",
+            },
+          )
+          .timeout(
+            const Duration(seconds: 10),
+            onTimeout: () {
+              throw Exception("OpenStreetMap SOS address lookup timed out");
+            },
+          );
 
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body) as Map<String, dynamic>;
@@ -285,20 +285,15 @@ class _SosAlarmScreenState extends State<SosAlarmScreen> {
     }
   }
 
-  Future<String> _getFallbackAddress(
-    double latitude,
-    double longitude,
-  ) async {
+  Future<String> _getFallbackAddress(double latitude, double longitude) async {
     try {
-      final places = await placemarkFromCoordinates(
-        latitude,
-        longitude,
-      ).timeout(
-        const Duration(seconds: 8),
-        onTimeout: () {
-          throw Exception("SOS fallback address lookup timed out");
-        },
-      );
+      final places = await placemarkFromCoordinates(latitude, longitude)
+          .timeout(
+            const Duration(seconds: 8),
+            onTimeout: () {
+              throw Exception("SOS fallback address lookup timed out");
+            },
+          );
 
       if (places.isEmpty) {
         return await _getSavedAddress();
@@ -367,19 +362,22 @@ class _SosAlarmScreenState extends State<SosAlarmScreen> {
     }
 
     try {
-      await Supabase.instance.client.from('sos_alerts').insert({
-        'user_id': user.id,
-        'latitude': position.latitude,
-        'longitude': position.longitude,
-        'accuracy': position.accuracy,
-        'address': address,
-        'is_online': true,
-      }).timeout(
-        const Duration(seconds: 8),
-        onTimeout: () {
-          throw Exception("Supabase SOS save timed out");
-        },
-      );
+      await Supabase.instance.client
+          .from('sos_alerts')
+          .insert({
+            'user_id': user.id,
+            'latitude': position.latitude,
+            'longitude': position.longitude,
+            'accuracy': position.accuracy,
+            'address': address,
+            'is_online': true,
+          })
+          .timeout(
+            const Duration(seconds: 8),
+            onTimeout: () {
+              throw Exception("Supabase SOS save timed out");
+            },
+          );
 
       debugPrint("SOS SAVE SUCCESS");
       _showMessage("Emergency location saved");
@@ -431,10 +429,7 @@ class _SosAlarmScreenState extends State<SosAlarmScreen> {
         position.longitude,
       );
 
-      await _saveSosLocally(
-        position: position,
-        address: address,
-      );
+      await _saveSosLocally(position: position, address: address);
 
       if (!mounted) return;
 
@@ -447,10 +442,7 @@ class _SosAlarmScreenState extends State<SosAlarmScreen> {
         _subText = "Emergency location captured";
       });
 
-      await _saveSosToSupabase(
-        position: position,
-        address: address,
-      );
+      await _saveSosToSupabase(position: position, address: address);
     } catch (e) {
       debugPrint("SOS LOCATION ERROR: $e");
 
@@ -462,10 +454,7 @@ class _SosAlarmScreenState extends State<SosAlarmScreen> {
           lastPosition.longitude,
         );
 
-        await _saveSosLocally(
-          position: lastPosition,
-          address: address,
-        );
+        await _saveSosLocally(position: lastPosition, address: address);
 
         if (!mounted) return;
 
@@ -478,10 +467,7 @@ class _SosAlarmScreenState extends State<SosAlarmScreen> {
           _subText = "Using your last known emergency location";
         });
 
-        await _saveSosToSupabase(
-          position: lastPosition,
-          address: address,
-        );
+        await _saveSosToSupabase(position: lastPosition, address: address);
       } else {
         if (!mounted) return;
 
@@ -527,15 +513,13 @@ class _SosAlarmScreenState extends State<SosAlarmScreen> {
 
     final sosText = _autoShareLocationOn
         ? "🚨 SOS Emergency Alert\n"
-            "$_defaultSosMessage\n\n"
-            "Location: $locationText\n"
-            "$accuracyText"
+              "$_defaultSosMessage\n\n"
+              "Location: $locationText\n"
+              "$accuracyText"
         : "🚨 SOS Emergency Alert\n"
-            "$_defaultSosMessage";
+              "$_defaultSosMessage";
 
-    await Clipboard.setData(
-      ClipboardData(text: sosText),
-    );
+    await Clipboard.setData(ClipboardData(text: sosText));
 
     _showMessage("SOS info copied");
   }
@@ -560,10 +544,7 @@ class _SosAlarmScreenState extends State<SosAlarmScreen> {
     if (!mounted) return;
 
     ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(message),
-        behavior: SnackBarBehavior.floating,
-      ),
+      SnackBar(content: Text(message), behavior: SnackBarBehavior.floating),
     );
   }
 
@@ -579,11 +560,7 @@ class _SosAlarmScreenState extends State<SosAlarmScreen> {
           Positioned(
             top: -90,
             right: -90,
-            child: _glowBlob(
-              color: _bgTop,
-              size: 300,
-              opacity: 0.32,
-            ),
+            child: _glowBlob(color: _bgTop, size: 300, opacity: 0.32),
           ),
           Positioned(
             top: 235,
@@ -597,11 +574,7 @@ class _SosAlarmScreenState extends State<SosAlarmScreen> {
           Positioned(
             bottom: -90,
             right: -70,
-            child: _glowBlob(
-              color: _bgMid,
-              size: 260,
-              opacity: 0.24,
-            ),
+            child: _glowBlob(color: _bgMid, size: 260, opacity: 0.24),
           ),
           SafeArea(
             child: SingleChildScrollView(
@@ -706,11 +679,7 @@ class _SosAlarmScreenState extends State<SosAlarmScreen> {
         gradient: LinearGradient(
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
-          colors: [
-            _bgBottom,
-            Color(0xFFDDF5FF),
-            _bgMid,
-          ],
+          colors: [_bgBottom, Color(0xFFDDF5FF), _bgMid],
         ),
       ),
     );
@@ -724,10 +693,7 @@ class _SosAlarmScreenState extends State<SosAlarmScreen> {
           onTap: () => Navigator.pop(context),
         ),
         const Spacer(),
-        _glassPill(
-          icon: Icons.notifications_active_rounded,
-          text: "SOS Alarm",
-        ),
+        _glassPill(icon: Icons.notifications_active_rounded, text: "SOS Alarm"),
       ],
     );
   }
@@ -832,9 +798,7 @@ class _SosAlarmScreenState extends State<SosAlarmScreen> {
         decoration: BoxDecoration(
           shape: BoxShape.circle,
           color: _mainColor.withValues(alpha: 0.10),
-          border: Border.all(
-            color: Colors.white.withValues(alpha: 0.40),
-          ),
+          border: Border.all(color: Colors.white.withValues(alpha: 0.40)),
         ),
         child: Center(
           child: AnimatedContainer(
@@ -844,9 +808,7 @@ class _SosAlarmScreenState extends State<SosAlarmScreen> {
             decoration: BoxDecoration(
               shape: BoxShape.circle,
               color: _mainColor.withValues(alpha: 0.17),
-              border: Border.all(
-                color: Colors.white.withValues(alpha: 0.34),
-              ),
+              border: Border.all(color: Colors.white.withValues(alpha: 0.34)),
             ),
             child: Center(
               child: AnimatedContainer(
@@ -946,15 +908,9 @@ class _SosAlarmScreenState extends State<SosAlarmScreen> {
             ),
           ),
           const SizedBox(height: 8),
-          _infoRow(
-            icon: Icons.my_location_rounded,
-            text: _coordinateText(),
-          ),
+          _infoRow(icon: Icons.my_location_rounded, text: _coordinateText()),
           const SizedBox(height: 6),
-          _infoRow(
-            icon: Icons.speed_rounded,
-            text: _accuracyText(),
-          ),
+          _infoRow(icon: Icons.speed_rounded, text: _accuracyText()),
           const SizedBox(height: 12),
           Container(
             width: double.infinity,
@@ -962,9 +918,7 @@ class _SosAlarmScreenState extends State<SosAlarmScreen> {
             decoration: BoxDecoration(
               color: Colors.white.withValues(alpha: 0.38),
               borderRadius: BorderRadius.circular(18),
-              border: Border.all(
-                color: Colors.white.withValues(alpha: 0.45),
-              ),
+              border: Border.all(color: Colors.white.withValues(alpha: 0.45)),
             ),
             child: Text(
               "$_statusText • $_subText",
@@ -1006,8 +960,8 @@ class _SosAlarmScreenState extends State<SosAlarmScreen> {
             _isLoading
                 ? "Saving Location..."
                 : _isAlarmActive
-                    ? "Stop Alarm"
-                    : "Activate Alarm",
+                ? "Stop Alarm"
+                : "Activate Alarm",
             style: GoogleFonts.poppins(
               color: Colors.white,
               fontSize: 15.5,
@@ -1028,9 +982,7 @@ class _SosAlarmScreenState extends State<SosAlarmScreen> {
         decoration: BoxDecoration(
           color: Colors.white.withValues(alpha: 0.42),
           borderRadius: BorderRadius.circular(20),
-          border: Border.all(
-            color: Colors.white.withValues(alpha: 0.58),
-          ),
+          border: Border.all(color: Colors.white.withValues(alpha: 0.58)),
         ),
         child: Center(
           child: Text(
@@ -1046,17 +998,10 @@ class _SosAlarmScreenState extends State<SosAlarmScreen> {
     );
   }
 
-  Widget _infoRow({
-    required IconData icon,
-    required String text,
-  }) {
+  Widget _infoRow({required IconData icon, required String text}) {
     return Row(
       children: [
-        Icon(
-          icon,
-          color: _mutedInk.withValues(alpha: 0.70),
-          size: 17,
-        ),
+        Icon(icon, color: _mutedInk.withValues(alpha: 0.70), size: 17),
         const SizedBox(width: 8),
         Expanded(
           child: Text(
@@ -1119,10 +1064,7 @@ class _SosAlarmScreenState extends State<SosAlarmScreen> {
     );
   }
 
-  Widget _circleButton({
-    required IconData icon,
-    required VoidCallback onTap,
-  }) {
+  Widget _circleButton({required IconData icon, required VoidCallback onTap}) {
     return ClipRRect(
       borderRadius: BorderRadius.circular(100),
       child: BackdropFilter(
@@ -1147,21 +1089,14 @@ class _SosAlarmScreenState extends State<SosAlarmScreen> {
                 ),
               ],
             ),
-            child: Icon(
-              icon,
-              color: _deepInk,
-              size: 22,
-            ),
+            child: Icon(icon, color: _deepInk, size: 22),
           ),
         ),
       ),
     );
   }
 
-  Widget _glassPill({
-    required IconData icon,
-    required String text,
-  }) {
+  Widget _glassPill({required IconData icon, required String text}) {
     return ClipRRect(
       borderRadius: BorderRadius.circular(100),
       child: BackdropFilter(
@@ -1171,17 +1106,11 @@ class _SosAlarmScreenState extends State<SosAlarmScreen> {
           decoration: BoxDecoration(
             color: Colors.white.withValues(alpha: 0.48),
             borderRadius: BorderRadius.circular(100),
-            border: Border.all(
-              color: Colors.white.withValues(alpha: 0.72),
-            ),
+            border: Border.all(color: Colors.white.withValues(alpha: 0.72)),
           ),
           child: Row(
             children: [
-              Icon(
-                icon,
-                color: _cardDark,
-                size: 17,
-              ),
+              Icon(icon, color: _cardDark, size: 17),
               const SizedBox(width: 7),
               Text(
                 text,
@@ -1198,25 +1127,16 @@ class _SosAlarmScreenState extends State<SosAlarmScreen> {
     );
   }
 
-  Widget _softIcon({
-    required IconData icon,
-    required Color color,
-  }) {
+  Widget _softIcon({required IconData icon, required Color color}) {
     return Container(
       height: 44,
       width: 44,
       decoration: BoxDecoration(
         color: color.withValues(alpha: 0.12),
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(
-          color: Colors.white.withValues(alpha: 0.50),
-        ),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.50)),
       ),
-      child: Icon(
-        icon,
-        color: color,
-        size: 22,
-      ),
+      child: Icon(icon, color: color, size: 22),
     );
   }
 

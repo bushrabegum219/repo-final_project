@@ -1,17 +1,17 @@
-import 'dart:ui' as ui;
 import 'dart:convert';
+import 'dart:ui' as ui;
 
+import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:google_fonts/google_fonts.dart';
+import 'package:flutter_map/flutter_map.dart';
+import 'package:geocoding/geocoding.dart';
 import 'package:geolocator/geolocator.dart';
-import 'package:connectivity_plus/connectivity_plus.dart';
+import 'package:google_fonts/google_fonts.dart';
+import 'package:http/http.dart' as http;
+import 'package:latlong2/latlong.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
-import 'package:geocoding/geocoding.dart';
-import 'package:flutter_map/flutter_map.dart';
-import 'package:latlong2/latlong.dart';
-import 'package:http/http.dart' as http;
 
 class MapScreen extends StatefulWidget {
   const MapScreen({super.key});
@@ -39,10 +39,26 @@ class _MapScreenState extends State<MapScreen> {
 
   static const LatLng _defaultSylhet = LatLng(24.904780, 91.860007);
 
+  static const Color _aqua = Color(0xFF35F2D0);
+  static const Color _teal = Color(0xFF0AA6A6);
+  static const Color _deepTeal = Color(0xFF104B4C);
+  static const Color _mint = Color(0xFFB8FFF0);
+  
+  static const Color _ink = Color(0xFF14333D);
+  static const Color _muted = Color(0xFF647982);
+  static const Color _warning = Color(0xFFFF9F43);
+  static const Color _success = Color(0xFF10B981);
+
   @override
   void initState() {
     super.initState();
     _prepareMapScreen();
+  }
+
+  @override
+  void dispose() {
+    _tokenController.dispose();
+    super.dispose();
   }
 
   Future<void> _prepareMapScreen() async {
@@ -75,13 +91,12 @@ class _MapScreenState extends State<MapScreen> {
         _latitude = lat;
         _longitude = lng;
         _accuracy = acc;
-        _address = savedAddress ?? "Saved offline location";
+        _address = savedAddress ?? "Saved safety location";
         _hasLocation = true;
-        _statusText =
-            _isOnline ? "Last saved location" : "Offline saved location";
+        _statusText = "Saved location ready";
         _subText = _isOnline
-            ? "Online map is available"
-            : "Internet is off, showing saved safety location";
+            ? "Map is ready to show your position"
+            : "Showing your saved safety location";
       });
 
       if (_isOnline) {
@@ -89,10 +104,10 @@ class _MapScreenState extends State<MapScreen> {
       }
     } else {
       setState(() {
-        _statusText = _isOnline ? "Online map ready" : "Offline mode active";
+        _statusText = _isOnline ? "Map ready" : "Offline mode active";
         _subText = _isOnline
             ? "Tap update my location to show your position"
-            : "No saved offline location found yet";
+            : "No saved location found yet";
       });
     }
   }
@@ -114,7 +129,7 @@ class _MapScreenState extends State<MapScreen> {
 
   Future<String> _getSavedAddress() async {
     final prefs = await SharedPreferences.getInstance();
-    return prefs.getString('last_address') ?? "Saved offline location";
+    return prefs.getString('last_address') ?? "Saved safety location";
   }
 
   Future<String> _getAddressFromCoordinates(
@@ -137,19 +152,21 @@ class _MapScreenState extends State<MapScreen> {
         "&addressdetails=1",
       );
 
-      final response = await http.get(
-        uri,
-        headers: {
-          "User-Agent": "AmaanSafetyApp/1.0",
-          "Accept": "application/json",
-          "Accept-Language": "en",
-        },
-      ).timeout(
-        const Duration(seconds: 10),
-        onTimeout: () {
-          throw Exception("OpenStreetMap address lookup timed out");
-        },
-      );
+      final response = await http
+          .get(
+            uri,
+            headers: {
+              "User-Agent": "AmaanSafetyApp/1.0",
+              "Accept": "application/json",
+              "Accept-Language": "en",
+            },
+          )
+          .timeout(
+            const Duration(seconds: 10),
+            onTimeout: () {
+              throw Exception("OpenStreetMap address lookup timed out");
+            },
+          );
 
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body) as Map<String, dynamic>;
@@ -198,20 +215,15 @@ class _MapScreenState extends State<MapScreen> {
     }
   }
 
-  Future<String> _getFallbackAddress(
-    double latitude,
-    double longitude,
-  ) async {
+  Future<String> _getFallbackAddress(double latitude, double longitude) async {
     try {
-      final places = await placemarkFromCoordinates(
-        latitude,
-        longitude,
-      ).timeout(
-        const Duration(seconds: 8),
-        onTimeout: () {
-          throw Exception("Fallback address lookup timed out");
-        },
-      );
+      final places = await placemarkFromCoordinates(latitude, longitude)
+          .timeout(
+            const Duration(seconds: 8),
+            onTimeout: () {
+              throw Exception("Fallback address lookup timed out");
+            },
+          );
 
       if (places.isEmpty) {
         return await _getSavedAddress();
@@ -340,18 +352,17 @@ class _MapScreenState extends State<MapScreen> {
         _accuracy = position.accuracy;
         _address = address;
         _hasLocation = true;
-        _statusText =
-            _isOnline ? "Current online location" : "Current offline GPS location";
+        _statusText = "Current location ready";
         _subText = _isOnline
-            ? "Real map and Supabase save available"
-            : "Internet off, location saved locally";
+            ? "Your location has been updated"
+            : "Internet is off, location saved on this device";
       });
 
       if (_isOnline) {
         _moveMapToLocation(position.latitude, position.longitude);
         await _saveLocationToSupabase(position);
       } else {
-        _showMessage("Offline mode: location saved locally only");
+        _showMessage("Location saved on this device");
       }
     } catch (e) {
       debugPrint("LOCATION ERROR: $e");
@@ -374,10 +385,8 @@ class _MapScreenState extends State<MapScreen> {
           _accuracy = lastPosition.accuracy;
           _address = address;
           _hasLocation = true;
-          _statusText = "Last known GPS location";
-          _subText = _isOnline
-              ? "Live GPS timed out, showing backup location"
-              : "Offline mode, showing saved safety location";
+          _statusText = "Backup location ready";
+          _subText = "Live GPS timed out, showing last known location";
         });
 
         if (_isOnline) {
@@ -407,140 +416,136 @@ class _MapScreenState extends State<MapScreen> {
 
   Future<void> _saveLocationToSupabase(Position position) async {
     if (!_isOnline) {
-      _showMessage("Offline mode: location saved locally only");
+      _showMessage("Location saved on this device");
       return;
     }
 
     final user = Supabase.instance.client.auth.currentUser;
 
     if (user == null) {
-      debugPrint("SUPABASE LOCATION SAVE ERROR: User is not logged in");
-      _showMessage("Please login first to save location online");
+      debugPrint("LOCATION SAVE ERROR: User is not logged in");
+      _showMessage("Location saved on this device");
       return;
     }
 
     try {
-      await Supabase.instance.client.from('user_locations').insert({
-        'user_id': user.id,
-        'latitude': position.latitude,
-        'longitude': position.longitude,
-        'accuracy': position.accuracy,
-        'is_online': true,
-      }).timeout(
-        const Duration(seconds: 8),
-        onTimeout: () {
-          throw Exception("Supabase save timed out");
-        },
-      );
+      await Supabase.instance.client
+          .from('user_locations')
+          .insert({
+            'user_id': user.id,
+            'latitude': position.latitude,
+            'longitude': position.longitude,
+            'accuracy': position.accuracy,
+            'is_online': true,
+          })
+          .timeout(
+            const Duration(seconds: 8),
+            onTimeout: () {
+              throw Exception("Supabase save timed out");
+            },
+          );
 
-      debugPrint("SUPABASE LOCATION SAVE SUCCESS");
-      _showMessage("Location saved online and offline");
+      debugPrint("LOCATION SAVE SUCCESS");
+      _showMessage("Location updated safely");
     } catch (e) {
-      debugPrint("SUPABASE LOCATION SAVE ERROR: $e");
-      _showMessage("Saved locally, but Supabase save failed");
+      debugPrint("LOCATION SAVE ERROR: $e");
+      _showMessage("Location saved on this device");
     }
   }
+
   Future<void> _loadLiveLocationFromToken() async {
-  final token = _tokenController.text.trim();
+    final token = _tokenController.text.trim();
 
-  if (token.isEmpty) {
-    _showMessage("Please paste a live tracking token first");
-    return;
-  }
-
-  if (_isLoadingTokenLocation) return;
-
-  setState(() {
-    _isLoadingTokenLocation = true;
-    _statusText = "Loading live tracking location...";
-    _subText = "Checking token from panic SMS";
-  });
-
-  try {
-    await _checkOnlineStatus();
-
-    if (!_isOnline) {
-      _showMessage("Internet is required to load live tracking token");
+    if (token.isEmpty) {
+      _showMessage("Please paste a live tracking token first");
       return;
     }
 
-    final session = await Supabase.instance.client
-        .rpc(
-          'get_live_tracking_by_token',
-          params: {
-            'input_token': token,
-          },
-        )
-        .maybeSingle();
+    if (_isLoadingTokenLocation) return;
 
-    if (session == null) {
-      throw Exception("No live tracking session found for this token");
+    setState(() {
+      _isLoadingTokenLocation = true;
+      _statusText = "Loading shared location...";
+      _subText = "Checking token from panic SMS";
+    });
+
+    try {
+      await _checkOnlineStatus();
+
+      if (!_isOnline) {
+        _showMessage("Internet is required to load live tracking token");
+        return;
+      }
+
+      final session = await Supabase.instance.client
+          .rpc('get_live_tracking_by_token', params: {'input_token': token})
+          .maybeSingle();
+
+      if (session == null) {
+        throw Exception("No live tracking session found for this token");
+      }
+
+      final latitudeValue = session['last_latitude'];
+      final longitudeValue = session['last_longitude'];
+      final accuracyValue = session['last_accuracy'];
+      final status = session['status']?.toString() ?? 'unknown';
+
+      if (latitudeValue == null || longitudeValue == null) {
+        throw Exception("Live location is not available yet");
+      }
+
+      final latitude = latitudeValue is num
+          ? latitudeValue.toDouble()
+          : double.parse(latitudeValue.toString());
+
+      final longitude = longitudeValue is num
+          ? longitudeValue.toDouble()
+          : double.parse(longitudeValue.toString());
+
+      final accuracy = accuracyValue == null
+          ? null
+          : accuracyValue is num
+          ? accuracyValue.toDouble()
+          : double.tryParse(accuracyValue.toString());
+
+      final address = await _getAddressFromCoordinates(latitude, longitude);
+
+      if (!mounted) return;
+
+      setState(() {
+        _latitude = latitude;
+        _longitude = longitude;
+        _accuracy = accuracy;
+        _address = address;
+        _hasLocation = true;
+        _statusText = status == 'active'
+            ? "Shared location active"
+            : "Shared session ended";
+        _subText = "Location loaded using panic SMS token";
+      });
+
+      _moveMapToLocation(latitude, longitude);
+
+      _showMessage("Shared location loaded");
+    } catch (e) {
+      debugPrint("LIVE TOKEN LOCATION ERROR: $e");
+
+      if (!mounted) return;
+
+      setState(() {
+        _statusText = "Could not load token";
+        _subText = "Check the token and try again";
+      });
+
+      _showMessage("Could not load shared location");
+    } finally {
+      if (!mounted) return;
+
+      setState(() {
+        _isLoadingTokenLocation = false;
+      });
     }
-
-    final latitudeValue = session['last_latitude'];
-    final longitudeValue = session['last_longitude'];
-    final accuracyValue = session['last_accuracy'];
-    final status = session['status']?.toString() ?? 'unknown';
-
-    if (latitudeValue == null || longitudeValue == null) {
-      throw Exception("Live location is not available yet");
-    }
-
-    final latitude = latitudeValue is num
-        ? latitudeValue.toDouble()
-        : double.parse(latitudeValue.toString());
-
-    final longitude = longitudeValue is num
-        ? longitudeValue.toDouble()
-        : double.parse(longitudeValue.toString());
-
-    final accuracy = accuracyValue == null
-        ? null
-        : accuracyValue is num
-            ? accuracyValue.toDouble()
-            : double.tryParse(accuracyValue.toString());
-
-    final address = await _getAddressFromCoordinates(
-      latitude,
-      longitude,
-    );
-
-    if (!mounted) return;
-
-    setState(() {
-      _latitude = latitude;
-      _longitude = longitude;
-      _accuracy = accuracy;
-      _address = address;
-      _hasLocation = true;
-      _statusText = status == 'active'
-          ? "Trusted live tracking active"
-          : "Trusted live session ended";
-      _subText = "Location loaded using panic SMS token";
-    });
-
-    _moveMapToLocation(latitude, longitude);
-
-    _showMessage("Live tracking location loaded");
-  } catch (e) {
-    debugPrint("LIVE TOKEN LOCATION ERROR: $e");
-
-    if (!mounted) return;
-
-    setState(() {
-      _statusText = "Could not load live token";
-      _subText = "Check the token and try again";
-    });
-
-    _showMessage("Could not load live location from token");
-  } finally {
-    if (!mounted) return;
-
-    setState(() {
-      _isLoadingTokenLocation = false;
-    });
   }
-}
 
   Future<void> _showOfflineSavedLocation() async {
     final prefs = await SharedPreferences.getInstance();
@@ -551,7 +556,7 @@ class _MapScreenState extends State<MapScreen> {
     final savedAddress = prefs.getString('last_address');
 
     if (lat == null || lng == null) {
-      _showMessage("No offline saved location found yet");
+      _showMessage("No saved location found yet");
       return;
     }
 
@@ -563,17 +568,17 @@ class _MapScreenState extends State<MapScreen> {
       _latitude = lat;
       _longitude = lng;
       _accuracy = acc;
-      _address = savedAddress ?? "Saved offline location";
+      _address = savedAddress ?? "Saved safety location";
       _hasLocation = true;
-      _statusText = "Offline saved location";
-      _subText = "This works without internet";
+      _statusText = "Saved location loaded";
+      _subText = "This can help when internet is unavailable";
     });
 
     if (_isOnline) {
       _moveMapToLocation(lat, lng);
     }
 
-    _showMessage("Offline saved location loaded");
+    _showMessage("Saved location loaded");
   }
 
   Future<void> _copyLocationInfo() async {
@@ -591,18 +596,16 @@ class _MapScreenState extends State<MapScreen> {
         "Coordinates: ${_latitude!.toStringAsFixed(6)}, ${_longitude!.toStringAsFixed(6)}\n"
         "Accuracy: $accuracyText";
 
-    await Clipboard.setData(
-      ClipboardData(text: locationText),
-    );
+    await Clipboard.setData(ClipboardData(text: locationText));
 
-    _showMessage("Location copied with accuracy");
+    _showMessage("Location copied");
   }
 
   void _centerOnlineMap() async {
     await _checkOnlineStatus();
 
     if (!_isOnline) {
-      _showMessage("Online map needs internet. Use offline saved location.");
+      _showMessage("Map needs internet. Use saved location instead.");
       return;
     }
 
@@ -617,10 +620,7 @@ class _MapScreenState extends State<MapScreen> {
 
   void _moveMapToLocation(double latitude, double longitude) {
     try {
-      _mapController.move(
-        LatLng(latitude, longitude),
-        17,
-      );
+      _mapController.move(LatLng(latitude, longitude), 17);
     } catch (e) {
       debugPrint("MAP MOVE ERROR: $e");
     }
@@ -654,10 +654,7 @@ class _MapScreenState extends State<MapScreen> {
     if (!mounted) return;
 
     ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(message),
-        behavior: SnackBarBehavior.floating,
-      ),
+      SnackBar(content: Text(message), behavior: SnackBarBehavior.floating),
     );
   }
 
@@ -678,12 +675,36 @@ class _MapScreenState extends State<MapScreen> {
             markers: [
               Marker(
                 point: LatLng(_latitude!, _longitude!),
-                width: 70,
-                height: 70,
-                child: const Icon(
-                  Icons.location_pin,
-                  color: Color(0xFF8F6AE8),
-                  size: 48,
+                width: 76,
+                height: 76,
+                child: Stack(
+                  alignment: Alignment.center,
+                  children: [
+                    Container(
+                      height: 62,
+                      width: 62,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        color: _aqua.withValues(alpha: 0.22),
+                      ),
+                    ),
+                    Container(
+                      height: 28,
+                      width: 28,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        color: _teal,
+                        border: Border.all(color: Colors.white, width: 4),
+                        boxShadow: [
+                          BoxShadow(
+                            color: _teal.withValues(alpha: 0.35),
+                            blurRadius: 18,
+                            offset: const Offset(0, 8),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
                 ),
               ),
             ],
@@ -695,57 +716,43 @@ class _MapScreenState extends State<MapScreen> {
   Widget _offlineMapView() {
     return Stack(
       children: [
-        Positioned.fill(
-          child: CustomPaint(
-            painter: _SimpleMapPainter(),
-          ),
-        ),
+        Positioned.fill(child: CustomPaint(painter: _SimpleMapPainter())),
         Positioned.fill(
           child: Container(
-            color: const Color(0xFFFFF7EF).withOpacity(0.35),
+            color: const Color(0xFFE2FFF8).withValues(alpha: 0.34),
           ),
         ),
         Center(
           child: Padding(
             padding: const EdgeInsets.only(bottom: 170),
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
-              margin: const EdgeInsets.symmetric(horizontal: 22),
-              decoration: BoxDecoration(
-                color: Colors.white.withOpacity(0.92),
-                borderRadius: BorderRadius.circular(22),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withOpacity(0.06),
-                    blurRadius: 18,
-                    offset: const Offset(0, 8),
-                  ),
-                ],
-              ),
+            child: _glassCard(
+              radius: 26,
+              padding: const EdgeInsets.all(18),
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  const Icon(
-                    Icons.wifi_off_rounded,
-                    color: Color(0xFFFF9F43),
-                    size: 34,
+                  _softIcon(
+                    icon: Icons.wifi_off_rounded,
+                    color: _warning,
+                    size: 58,
                   ),
-                  const SizedBox(height: 8),
+                  const SizedBox(height: 12),
                   Text(
-                    "Offline Safety Mode",
+                    "Saved Location Mode",
                     style: GoogleFonts.poppins(
-                      color: const Color(0xFF342D42),
-                      fontSize: 15,
-                      fontWeight: FontWeight.w800,
+                      color: _ink,
+                      fontSize: 16,
+                      fontWeight: FontWeight.w900,
                     ),
                   ),
                   const SizedBox(height: 6),
                   Text(
-                    "Real map needs internet, but your saved location and coordinates still work.",
+                    "Real map needs internet, but your saved location and coordinates can still be used.",
                     textAlign: TextAlign.center,
                     style: GoogleFonts.poppins(
-                      color: Colors.black54,
-                      fontSize: 11,
+                      color: _muted,
+                      fontSize: 11.5,
+                      height: 1.4,
                       fontWeight: FontWeight.w500,
                     ),
                   ),
@@ -763,138 +770,147 @@ class _MapScreenState extends State<MapScreen> {
       top: 0,
       left: 0,
       right: 0,
-      child: Container(
-        padding: const EdgeInsets.fromLTRB(12, 12, 12, 18),
-        decoration: BoxDecoration(
-          color: Colors.white.withOpacity(0.94),
-          borderRadius: const BorderRadius.only(
-            bottomLeft: Radius.circular(28),
-            bottomRight: Radius.circular(28),
-          ),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withOpacity(0.04),
-              blurRadius: 14,
-              offset: const Offset(0, 6),
-            ),
-          ],
+      child: ClipRRect(
+        borderRadius: const BorderRadius.only(
+          bottomLeft: Radius.circular(34),
+          bottomRight: Radius.circular(34),
         ),
-        child: Column(
-          children: [
-            Row(
-              children: [
-                _topCircleButton(
-                  icon: Icons.arrow_back_ios_new_rounded,
-                  onTap: () => Navigator.pop(context),
+        child: BackdropFilter(
+          filter: ui.ImageFilter.blur(sigmaX: 18, sigmaY: 18),
+          child: Container(
+            padding: const EdgeInsets.fromLTRB(18, 16, 18, 18),
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.centerLeft,
+                end: Alignment.centerRight,
+                colors: [
+                  Colors.white.withValues(alpha: 0.74),
+                  _mint.withValues(alpha: 0.26),
+                  Colors.white.withValues(alpha: 0.56),
+                ],
+              ),
+              border: Border(
+                bottom: BorderSide(
+                  color: Colors.white.withValues(alpha: 0.72),
+                  width: 1.2,
                 ),
-                Expanded(
-                  child: Center(
-                    child: Text(
-                      "Safety Map",
-                      style: GoogleFonts.poppins(
-                        color: const Color(0xFF3A3348),
-                        fontSize: 15,
-                        fontWeight: FontWeight.w700,
-                      ),
-                    ),
-                  ),
-                ),
-                _topCircleButton(
-                  icon: Icons.my_location_rounded,
-                  onTap: _updateMyLocation,
+              ),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.05),
+                  blurRadius: 18,
+                  offset: const Offset(0, 8),
                 ),
               ],
             ),
-            const SizedBox(height: 14),
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-              decoration: BoxDecoration(
-                color: _isOnline
-                    ? const Color(0xFFF0E9FF)
-                    : const Color(0xFFFFEFE2),
-                borderRadius: BorderRadius.circular(18),
-              ),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Container(
-                    height: 6,
-                    width: 6,
-                    decoration: BoxDecoration(
-                      color: _isOnline
-                          ? const Color(0xFF9B7BE8)
-                          : const Color(0xFFFF9F43),
-                      shape: BoxShape.circle,
+            child: Column(
+              children: [
+                Row(
+                  children: [
+                    _topCircleButton(
+                      icon: Icons.arrow_back_ios_new_rounded,
+                      onTap: () => Navigator.pop(context),
                     ),
-                  ),
-                  const SizedBox(width: 7),
-                  Text(
-                    _isOnline ? "Online Real Map" : "Offline Saved Mode",
-                    style: GoogleFonts.poppins(
-                      color: _isOnline
-                          ? const Color(0xFF9B7BE8)
-                          : const Color(0xFFFF9F43),
-                      fontSize: 10.5,
-                      fontWeight: FontWeight.w700,
+                    Expanded(
+                      child: Center(
+                        child: Text(
+                          "Safety Map",
+                          style: GoogleFonts.poppins(
+                            color: _ink,
+                            fontSize: 17,
+                            fontWeight: FontWeight.w900,
+                          ),
+                        ),
+                      ),
                     ),
-                  ),
-                ],
-              ),
+                    _topCircleButton(
+                      icon: Icons.my_location_rounded,
+                      onTap: _updateMyLocation,
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 14),
+                _statusPill(),
+              ],
             ),
-          ],
+          ),
         ),
       ),
     );
   }
 
-  Widget _locationCard() {
+  Widget _statusPill() {
+    final hasCapturedLocation = _latitude != null && _longitude != null;
+
     return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(15),
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 9),
       decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(22),
-        border: Border.all(
-          color: const Color(0xFFF0ECF7),
-          width: 1.2,
-        ),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.035),
-            blurRadius: 14,
-            offset: const Offset(0, 7),
+        color: Colors.white.withValues(alpha: 0.46),
+        borderRadius: BorderRadius.circular(100),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.72)),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Container(
+            height: 7,
+            width: 7,
+            decoration: BoxDecoration(
+              color: hasCapturedLocation
+                  ? _success
+                  : _isOnline
+                  ? _teal
+                  : _warning,
+              shape: BoxShape.circle,
+            ),
+          ),
+          const SizedBox(width: 8),
+          Text(
+            hasCapturedLocation
+                ? "Location Ready"
+                : _isOnline
+                ? "Map Ready"
+                : "Saved Mode",
+            style: GoogleFonts.poppins(
+              color: hasCapturedLocation
+                  ? _success
+                  : _isOnline
+                  ? _teal
+                  : _warning,
+              fontSize: 11,
+              fontWeight: FontWeight.w900,
+            ),
           ),
         ],
       ),
+    );
+  }
+
+  Widget _locationCard() {
+    return _glassCard(
+      radius: 25,
+      padding: const EdgeInsets.all(16),
       child: Row(
         children: [
-          Container(
-            height: 38,
-            width: 38,
-            decoration: BoxDecoration(
-              color:
-                  _isOnline ? const Color(0xFFF0E9FF) : const Color(0xFFFFEFE2),
-              borderRadius: BorderRadius.circular(14),
-            ),
-            child: Icon(
-              _isOnline ? Icons.location_pin : Icons.offline_pin_rounded,
-              color:
-                  _isOnline ? const Color(0xFF9B7BE8) : const Color(0xFFFF9F43),
-              size: 21,
-            ),
+          _softIcon(
+            icon: _latitude == null
+                ? Icons.location_searching_rounded
+                : Icons.location_on_rounded,
+            color: _latitude == null ? _deepTeal : _success,
+            size: 50,
           ),
-          const SizedBox(width: 12),
+          const SizedBox(width: 13),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  _isOnline ? "CURRENT ADDRESS" : "OFFLINE SAFETY LOCATION",
+                  "CURRENT ADDRESS",
                   style: GoogleFonts.poppins(
-                    color: const Color(0xFFB2A9C3),
+                    color: _muted.withValues(alpha: 0.82),
                     fontSize: 10,
-                    fontWeight: FontWeight.w800,
-                    letterSpacing: 0.5,
+                    fontWeight: FontWeight.w900,
+                    letterSpacing: 0.7,
                   ),
                 ),
                 const SizedBox(height: 5),
@@ -903,35 +919,36 @@ class _MapScreenState extends State<MapScreen> {
                   maxLines: 3,
                   overflow: TextOverflow.ellipsis,
                   style: GoogleFonts.poppins(
-                    color: const Color(0xFF342D42),
-                    fontSize: 13,
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  _coordinateText(),
-                  style: GoogleFonts.poppins(
-                    color: Colors.black45,
-                    fontSize: 10.5,
-                    fontWeight: FontWeight.w500,
-                  ),
-                ),
-                const SizedBox(height: 2),
-                Text(
-                  _accuracyText(),
-                  style: GoogleFonts.poppins(
-                    color: Colors.black38,
-                    fontSize: 10.5,
-                    fontWeight: FontWeight.w500,
+                    color: _ink,
+                    fontSize: 13.5,
+                    fontWeight: FontWeight.w900,
                   ),
                 ),
                 const SizedBox(height: 5),
                 Text(
+                  _coordinateText(),
+                  style: GoogleFonts.poppins(
+                    color: _muted,
+                    fontSize: 11,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                const SizedBox(height: 3),
+                Text(
+                  _accuracyText(),
+                  style: GoogleFonts.poppins(
+                    color: _muted.withValues(alpha: 0.82),
+                    fontSize: 10.5,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+                const SizedBox(height: 7),
+                Text(
                   "$_statusText • $_subText",
                   style: GoogleFonts.poppins(
-                    color: Colors.black45,
-                    fontSize: 10,
+                    color: _muted,
+                    fontSize: 10.2,
+                    height: 1.35,
                     fontWeight: FontWeight.w500,
                   ),
                 ),
@@ -942,111 +959,113 @@ class _MapScreenState extends State<MapScreen> {
       ),
     );
   }
+
   Widget _liveTokenCard() {
-  return Container(
-    width: double.infinity,
-    padding: const EdgeInsets.all(14),
-    decoration: BoxDecoration(
-      color: const Color(0xFFF8F6FB),
-      borderRadius: BorderRadius.circular(18),
-      border: Border.all(
-        color: const Color(0xFFE8E0F2),
-        width: 1,
-      ),
-    ),
-    child: Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          "LIVE TRACKING TOKEN",
-          style: GoogleFonts.poppins(
-            color: const Color(0xFF9B7BE8),
-            fontSize: 10,
-            fontWeight: FontWeight.w800,
-            letterSpacing: 0.5,
-          ),
-        ),
-        const SizedBox(height: 8),
-        TextField(
-          controller: _tokenController,
-          decoration: InputDecoration(
-            hintText: "Paste token from panic SMS",
-            hintStyle: GoogleFonts.poppins(
-              color: Colors.black38,
-              fontSize: 12,
-              fontWeight: FontWeight.w500,
-            ),
-            filled: true,
-            fillColor: Colors.white,
-            contentPadding: const EdgeInsets.symmetric(
-              horizontal: 12,
-              vertical: 12,
-            ),
-            border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(14),
-              borderSide: BorderSide.none,
+    return _glassCard(
+      radius: 22,
+      padding: const EdgeInsets.all(15),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            "LIVE TRACKING TOKEN",
+            style: GoogleFonts.poppins(
+              color: _teal,
+              fontSize: 10,
+              fontWeight: FontWeight.w900,
+              letterSpacing: 0.7,
             ),
           ),
-        ),
-        const SizedBox(height: 10),
-        GestureDetector(
-          onTap: _isLoadingTokenLocation ? null : _loadLiveLocationFromToken,
-          child: Container(
-            height: 44,
-            width: double.infinity,
-            decoration: BoxDecoration(
-              color: const Color(0xFF9B7BE8),
-              borderRadius: BorderRadius.circular(14),
+          const SizedBox(height: 10),
+          TextField(
+            controller: _tokenController,
+            style: GoogleFonts.poppins(
+              color: _ink,
+              fontSize: 13,
+              fontWeight: FontWeight.w600,
             ),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Icon(
-                  _isLoadingTokenLocation
-                      ? Icons.hourglass_bottom_rounded
-                      : Icons.location_searching_rounded,
-                  color: Colors.white,
-                  size: 18,
+            decoration: InputDecoration(
+              hintText: "Paste token from panic SMS",
+              hintStyle: GoogleFonts.poppins(
+                color: _muted.withValues(alpha: 0.62),
+                fontSize: 12,
+                fontWeight: FontWeight.w500,
+              ),
+              filled: true,
+              fillColor: Colors.white.withValues(alpha: 0.66),
+              contentPadding: const EdgeInsets.symmetric(
+                horizontal: 14,
+                vertical: 14,
+              ),
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(17),
+                borderSide: BorderSide.none,
+              ),
+            ),
+          ),
+          const SizedBox(height: 12),
+          GestureDetector(
+            onTap: _isLoadingTokenLocation ? null : _loadLiveLocationFromToken,
+            child: Container(
+              height: 48,
+              width: double.infinity,
+              decoration: BoxDecoration(
+                gradient: const LinearGradient(
+                  colors: [_deepTeal, _teal, _aqua],
                 ),
-                const SizedBox(width: 8),
-                Text(
-                  _isLoadingTokenLocation
-                      ? "Loading Live Location..."
-                      : "Load Live Location",
-                  style: GoogleFonts.poppins(
-                    color: Colors.white,
-                    fontSize: 12.5,
-                    fontWeight: FontWeight.w700,
+                borderRadius: BorderRadius.circular(17),
+                boxShadow: [
+                  BoxShadow(
+                    color: _teal.withValues(alpha: 0.25),
+                    blurRadius: 18,
+                    offset: const Offset(0, 9),
                   ),
-                ),
-              ],
+                ],
+              ),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(
+                    _isLoadingTokenLocation
+                        ? Icons.hourglass_bottom_rounded
+                        : Icons.location_searching_rounded,
+                    color: Colors.white,
+                    size: 19,
+                  ),
+                  const SizedBox(width: 8),
+                  Text(
+                    _isLoadingTokenLocation
+                        ? "Loading Shared Location..."
+                        : "Load Shared Location",
+                    style: GoogleFonts.poppins(
+                      color: Colors.white,
+                      fontSize: 12.8,
+                      fontWeight: FontWeight.w900,
+                    ),
+                  ),
+                ],
+              ),
             ),
           ),
-        ),
-      ],
-    ),
-  );
-}
+        ],
+      ),
+    );
+  }
 
   Widget _primaryButton() {
     return GestureDetector(
       onTap: _isLoading ? null : _updateMyLocation,
       child: Container(
-        height: 54,
+        height: 56,
         width: double.infinity,
         decoration: BoxDecoration(
-          gradient: const LinearGradient(
-            colors: [
-              Color(0xFFA685F0),
-              Color(0xFF8F6AE8),
-            ],
-          ),
-          borderRadius: BorderRadius.circular(18),
+          gradient: const LinearGradient(colors: [_deepTeal, _teal, _aqua]),
+          borderRadius: BorderRadius.circular(20),
           boxShadow: [
             BoxShadow(
-              color: const Color(0xFF9B7BE8).withOpacity(0.28),
-              blurRadius: 16,
-              offset: const Offset(0, 8),
+              color: _teal.withValues(alpha: 0.28),
+              blurRadius: 20,
+              offset: const Offset(0, 10),
             ),
           ],
         ),
@@ -1054,17 +1073,19 @@ class _MapScreenState extends State<MapScreen> {
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             Icon(
-              _isLoading ? Icons.hourglass_bottom_rounded : Icons.near_me_rounded,
+              _isLoading
+                  ? Icons.hourglass_bottom_rounded
+                  : Icons.near_me_rounded,
               color: Colors.white,
-              size: 20,
+              size: 21,
             ),
-            const SizedBox(width: 8),
+            const SizedBox(width: 9),
             Text(
               _isLoading ? "Getting Location..." : "Update My Location",
               style: GoogleFonts.poppins(
                 color: Colors.white,
                 fontSize: 14,
-                fontWeight: FontWeight.w700,
+                fontWeight: FontWeight.w900,
               ),
             ),
           ],
@@ -1087,7 +1108,8 @@ class _MapScreenState extends State<MapScreen> {
         width: double.infinity,
         decoration: BoxDecoration(
           color: backgroundColor,
-          borderRadius: BorderRadius.circular(16),
+          borderRadius: BorderRadius.circular(17),
+          border: Border.all(color: Colors.white.withValues(alpha: 0.42)),
         ),
         child: Row(
           mainAxisAlignment: MainAxisAlignment.center,
@@ -1098,8 +1120,8 @@ class _MapScreenState extends State<MapScreen> {
               text,
               style: GoogleFonts.poppins(
                 color: textColor,
-                fontSize: 13,
-                fontWeight: FontWeight.w700,
+                fontSize: 12.6,
+                fontWeight: FontWeight.w900,
               ),
             ),
           ],
@@ -1109,74 +1131,111 @@ class _MapScreenState extends State<MapScreen> {
   }
 
   Widget _bottomSheet() {
-    return Positioned(
-      left: 0,
-      right: 0,
-      bottom: 0,
-      child: Container(
-        constraints: const BoxConstraints(maxHeight: 450),
-        padding: const EdgeInsets.fromLTRB(14, 14, 14, 18),
-        decoration: BoxDecoration(
-          color: Colors.white.withOpacity(0.96),
+    return DraggableScrollableSheet(
+      initialChildSize: 0.48,
+      minChildSize: 0.16,
+      maxChildSize: 0.86,
+      snap: true,
+      snapSizes: const [0.16, 0.48, 0.86],
+      builder: (context, scrollController) {
+        return ClipRRect(
           borderRadius: const BorderRadius.only(
-            topLeft: Radius.circular(30),
-            topRight: Radius.circular(30),
+            topLeft: Radius.circular(34),
+            topRight: Radius.circular(34),
           ),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withOpacity(0.06),
-              blurRadius: 18,
-              offset: const Offset(0, -6),
-            ),
-          ],
-        ),
-        child: SingleChildScrollView(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Container(
-                height: 5,
-                width: 52,
-                decoration: BoxDecoration(
-                  color: const Color(0xFFE6E0EE),
-                  borderRadius: BorderRadius.circular(10),
+          child: BackdropFilter(
+            filter: ui.ImageFilter.blur(sigmaX: 22, sigmaY: 22),
+            child: Container(
+              padding: const EdgeInsets.fromLTRB(14, 12, 14, 18),
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                  colors: [
+                    Colors.white.withValues(alpha: 0.92),
+                    _mint.withValues(alpha: 0.30),
+                    Colors.white.withValues(alpha: 0.72),
+                  ],
+                ),
+                border: Border(
+                  top: BorderSide(
+                    color: Colors.white.withValues(alpha: 0.82),
+                    width: 1.3,
+                  ),
+                ),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.08),
+                    blurRadius: 24,
+                    offset: const Offset(0, -8),
+                  ),
+                ],
+              ),
+              child: SingleChildScrollView(
+                controller: scrollController,
+                physics: const BouncingScrollPhysics(),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Container(
+                      height: 5,
+                      width: 54,
+                      decoration: BoxDecoration(
+                        color: _teal.withValues(alpha: 0.28),
+                        borderRadius: BorderRadius.circular(99),
+                      ),
+                    ),
+                    const SizedBox(height: 10),
+                    Text(
+                      "Swipe up for options • Swipe down for map",
+                      style: GoogleFonts.poppins(
+                        color: _muted.withValues(alpha: 0.78),
+                        fontSize: 10.5,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                    const SizedBox(height: 14),
+                    _locationCard(),
+                    const SizedBox(height: 14),
+                    _liveTokenCard(),
+                    const SizedBox(height: 14),
+                    _primaryButton(),
+                    const SizedBox(height: 10),
+                    _actionButton(
+                      text: "Show Saved Location",
+                      icon: Icons.offline_pin_rounded,
+                      backgroundColor: _warning.withValues(alpha: 0.12),
+                      textColor: _warning,
+                      onTap: _showOfflineSavedLocation,
+                    ),
+                    const SizedBox(height: 10),
+                    _actionButton(
+                      text: "Copy Location Info",
+                      icon: Icons.copy_rounded,
+                      backgroundColor: _success.withValues(alpha: 0.12),
+                      textColor: _success,
+                      onTap: _copyLocationInfo,
+                    ),
+                    const SizedBox(height: 10),
+                    _actionButton(
+                      text: _isOnline ? "Center Map" : "Map Needs Internet",
+                      icon: Icons.map_rounded,
+                      backgroundColor: _isOnline
+                          ? _teal.withValues(alpha: 0.12)
+                          : Colors.black.withValues(alpha: 0.06),
+                      textColor: _isOnline
+                          ? _teal
+                          : Colors.black.withValues(alpha: 0.38),
+                      onTap: _centerOnlineMap,
+                    ),
+                    const SizedBox(height: 18),
+                  ],
                 ),
               ),
-              const SizedBox(height: 20),
-              _locationCard(),
-const SizedBox(height: 14),
-_liveTokenCard(),
-const SizedBox(height: 14),
-_primaryButton(),
-const SizedBox(height: 10),
-_actionButton(
-  text: "Show Offline Saved Location",
-                icon: Icons.offline_pin_rounded,
-                backgroundColor: const Color(0xFFFFEFE2),
-                textColor: const Color(0xFFFF9F43),
-                onTap: _showOfflineSavedLocation,
-              ),
-              const SizedBox(height: 10),
-              _actionButton(
-                text: "Copy Location Info",
-                icon: Icons.copy_rounded,
-                backgroundColor: const Color(0xFFEAF7EF),
-                textColor: const Color(0xFF37A66B),
-                onTap: _copyLocationInfo,
-              ),
-              const SizedBox(height: 10),
-              _actionButton(
-                text: _isOnline ? "Center Online Map" : "Online Map Disabled",
-                icon: Icons.map_rounded,
-                backgroundColor:
-                    _isOnline ? const Color(0xFFF0E9FF) : const Color(0xFFECECEC),
-                textColor: _isOnline ? const Color(0xFF9B7BE8) : Colors.black38,
-                onTap: _centerOnlineMap,
-              ),
-            ],
+            ),
           ),
-        ),
-      ),
+        );
+      },
     );
   }
 
@@ -1184,33 +1243,95 @@ _actionButton(
     required IconData icon,
     required VoidCallback onTap,
   }) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        height: 34,
-        width: 34,
-        decoration: const BoxDecoration(
-          color: Color(0xFFF8F6FB),
-          shape: BoxShape.circle,
-        ),
-        child: Icon(
-          icon,
-          color: const Color(0xFF6C627C),
-          size: 16,
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(100),
+      child: BackdropFilter(
+        filter: ui.ImageFilter.blur(sigmaX: 16, sigmaY: 16),
+        child: GestureDetector(
+          onTap: onTap,
+          child: Container(
+            height: 42,
+            width: 42,
+            decoration: BoxDecoration(
+              color: Colors.white.withValues(alpha: 0.52),
+              shape: BoxShape.circle,
+              border: Border.all(color: Colors.white.withValues(alpha: 0.74)),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.04),
+                  blurRadius: 14,
+                  offset: const Offset(0, 7),
+                ),
+              ],
+            ),
+            child: Icon(icon, color: _ink, size: 19),
+          ),
         ),
       ),
     );
   }
-  @override
-void dispose() {
-  _tokenController.dispose();
-  super.dispose();
-}
+
+  Widget _glassCard({
+    required Widget child,
+    EdgeInsetsGeometry padding = const EdgeInsets.all(18),
+    double radius = 28,
+  }) {
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(radius),
+      child: BackdropFilter(
+        filter: ui.ImageFilter.blur(sigmaX: 18, sigmaY: 18),
+        child: Container(
+          width: double.infinity,
+          padding: padding,
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(radius),
+            gradient: LinearGradient(
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+              colors: [
+                Colors.white.withValues(alpha: 0.74),
+                Colors.white.withValues(alpha: 0.36),
+              ],
+            ),
+            border: Border.all(
+              color: Colors.white.withValues(alpha: 0.72),
+              width: 1.2,
+            ),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.045),
+                blurRadius: 20,
+                offset: const Offset(0, 11),
+              ),
+            ],
+          ),
+          child: child,
+        ),
+      ),
+    );
+  }
+
+  Widget _softIcon({
+    required IconData icon,
+    required Color color,
+    double size = 44,
+  }) {
+    return Container(
+      height: size,
+      width: size,
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.12),
+        borderRadius: BorderRadius.circular(size * 0.34),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.56)),
+      ),
+      child: Icon(icon, color: color, size: size * 0.48),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFF8F3EC),
+      backgroundColor: const Color(0xFFE8F6FF),
       body: SafeArea(
         child: Stack(
           children: [
@@ -1230,22 +1351,49 @@ class _SimpleMapPainter extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {
     final bgPaint = Paint()
-      ..color = const Color(0xFFF4E8DA)
+      ..color = const Color(0xFFE5FFF7)
       ..style = PaintingStyle.fill;
 
     canvas.drawRect(Rect.fromLTWH(0, 0, size.width, size.height), bgPaint);
 
     final roadPaint = Paint()
-      ..color = Colors.white.withOpacity(0.65)
+      ..color = Colors.white.withValues(alpha: 0.72)
       ..strokeWidth = 3
       ..style = PaintingStyle.stroke
       ..strokeCap = StrokeCap.round;
 
     final thinRoadPaint = Paint()
-      ..color = Colors.white.withOpacity(0.45)
+      ..color = Colors.white.withValues(alpha: 0.50)
       ..strokeWidth = 1.4
       ..style = PaintingStyle.stroke
       ..strokeCap = StrokeCap.round;
+
+    final riverPaint = Paint()
+      ..color = const Color(0xFF74D9F2).withValues(alpha: 0.28)
+      ..strokeWidth = 18
+      ..style = PaintingStyle.stroke
+      ..strokeCap = StrokeCap.round;
+
+    final river = ui.Path()
+      ..moveTo(size.width * 0.08, 0)
+      ..cubicTo(
+        size.width * 0.25,
+        size.height * 0.22,
+        size.width * 0.12,
+        size.height * 0.42,
+        size.width * 0.34,
+        size.height * 0.62,
+      )
+      ..cubicTo(
+        size.width * 0.52,
+        size.height * 0.78,
+        size.width * 0.44,
+        size.height * 0.90,
+        size.width * 0.62,
+        size.height,
+      );
+
+    canvas.drawPath(river, riverPaint);
 
     final path1 = ui.Path()
       ..moveTo(size.width * 0.60, 0)
@@ -1333,6 +1481,22 @@ class _SimpleMapPainter extends CustomPainter {
 
       canvas.drawPath(p, thinRoadPaint);
     }
+
+    final parkPaint = Paint()
+      ..color = const Color(0xFFB8F7D4).withValues(alpha: 0.55)
+      ..style = PaintingStyle.fill;
+
+    canvas.drawCircle(
+      Offset(size.width * 0.78, size.height * 0.22),
+      42,
+      parkPaint,
+    );
+
+    canvas.drawCircle(
+      Offset(size.width * 0.22, size.height * 0.78),
+      52,
+      parkPaint,
+    );
   }
 
   @override

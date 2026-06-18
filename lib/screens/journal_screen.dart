@@ -33,86 +33,140 @@ class _JournalScreenState extends State<JournalScreen> {
   }
 
   Future<void> _generateSupportResponse() async {
-  final journalText = _journalController.text.trim();
+    final journalText = _journalController.text.trim();
 
-  if (journalText.isEmpty) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Please write something first')),
-    );
-    return;
-  }
+    if (journalText.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Please write something first')),
+      );
+      return;
+    }
 
-  final userId = _supabase.auth.currentUser?.id;
+    final userId = _supabase.auth.currentUser?.id;
 
-  if (userId == null) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('User not logged in')),
-    );
-    return;
-  }
+    if (userId == null) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('User not logged in')));
+      return;
+    }
 
-  final responseText = _getResponseForMood(_selectedMood, _supportType);
+    final responseText = _getResponseForMood(_selectedMood, _supportType);
 
-  setState(() {
-    _responseText = responseText;
-  });
-
-  try {
-    await _supabase.from('journal_entries').insert({
-      'user_id': userId,
-      'mood': _selectedMood,
-      'journal_text': journalText,
-      'support_type': _supportType,
-      'response_text': responseText,
+    setState(() {
+      _responseText = responseText;
     });
 
-    if (!mounted) return;
+    try {
+      await _supabase.from('journal_entries').insert({
+        'user_id': userId,
+        'mood': _selectedMood,
+        'journal_text': journalText,
+        'support_type': _supportType,
+        'response_text': responseText,
+      });
 
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Journal saved')),
-    );
-  } catch (e) {
-    if (!mounted) return;
+      if (!mounted) return;
 
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('Journal save failed: $e')),
-    );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Journal saved')));
+    } catch (e) {
+      if (!mounted) return;
+
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Journal save failed: $e')));
+    }
   }
-}
 
-void _startNewReflection() {
-  setState(() {
-    _journalController.clear();
-    _responseText = null;
-    _selectedMood = 'Calm';
-    _supportType = 'Quran Reflection';
-  });
-}
+  void _startNewReflection() {
+    setState(() {
+      _journalController.clear();
+      _responseText = null;
+      _selectedMood = 'Calm';
+      _supportType = 'Quran Reflection';
+    });
+  }
 
   String _getResponseForMood(String mood, String type) {
-    if (type == 'Quran Reflection') {
-      switch (mood) {
-        case 'Stressed':
-          return '“Verily, with hardship comes ease.” — Quran 94:6\n\nTake a slow breath. This difficult moment is not permanent.';
-        case 'Sad':
-          return '“Do not lose hope, nor be sad.” — Quran 3:139\n\nYour feelings are valid. You are allowed to rest and heal.';
-        case 'Happy':
-          return '“If you are grateful, I will surely increase you.” — Quran 14:7\n\nHold onto this peaceful feeling and be thankful for today.';
-        default:
-          return '“Allah does not burden a soul beyond what it can bear.” — Quran 2:286\n\nYou are stronger than this moment.';
-      }
-    } else {
-      switch (mood) {
-        case 'Stressed':
-          return 'Pause. Breathe. You do not have to solve everything at once. Take one small step at a time.';
-        case 'Sad':
-          return 'It is okay to feel low. Your emotions are not weakness; they are part of being human.';
-        case 'Happy':
-          return 'Celebrate this moment. Small moments of joy matter, and you deserve them.';
-        default:
-          return 'You are safe in this moment. Let your thoughts settle gently, one breath at a time.';
-      }
+    final Map<String, Map<String, List<String>>> responses = {
+      'Quran Reflection': {
+        'Stressed': [
+          'Quran 94:5–6 reminds us that ease comes with hardship.\n\nTake one slow breath. This pressure is heavy, but it is not permanent.',
+          'Quran 2:286 reminds us that Allah does not burden a soul beyond what it can bear.\n\nYou do not need to solve everything today. Begin with one small step.',
+          'Quran 13:28 reminds us that hearts find peace through the remembrance of Allah.\n\nPause for a moment. Let your heart return to calm slowly.',
+          'Quran 65:3 reminds us that Allah provides from ways we may not expect.\n\nEven when the path feels unclear, you are not without support.',
+          'Quran 3:173 reminds believers to place trust in Allah.\n\nThis stressful moment can pass. Hold yourself gently and keep going.',
+        ],
+        'Sad': [
+          'Quran 3:139 reminds us not to lose heart or fall into despair.\n\nYour sadness is real, but it does not define your future.',
+          'Quran 93:3 reminds us that Allah has not abandoned us.\n\nEven when your heart feels quiet and tired, you are still cared for.',
+          'Quran 12:87 reminds us not to despair of Allah’s mercy.\n\nLet this be a soft reminder that healing can come slowly, one day at a time.',
+          'Quran 21:83 shows the patience of Prophet Ayyub during hardship.\n\nYour pain matters. You can rest without giving up.',
+          'Quran 2:153 reminds us to seek help through patience and prayer.\n\nToday may feel heavy, but you do not have to carry it alone.',
+        ],
+        'Calm': [
+          'Quran 13:28 reminds us that remembrance brings peace to the heart.\n\nStay with this calm feeling. Let it settle gently inside you.',
+          'Quran 2:286 reminds us that Allah knows our capacity.\n\nThis peaceful moment is a chance to breathe, reflect, and reset.',
+          'Quran 16:18 reminds us that Allah’s blessings are beyond counting.\n\nNotice one small blessing around you and hold gratitude for it.',
+          'Quran 20:46 reminds us that Allah is near and aware.\n\nYou are safe in this moment. Let your thoughts become lighter.',
+          'Quran 94:5–6 reminds us that ease follows hardship.\n\nThis calm may be the ease your heart needed today.',
+        ],
+        'Happy': [
+          'Quran 14:7 reminds us that gratitude increases blessings.\n\nEnjoy this happiness and let thankfulness make it even brighter.',
+          'Quran 55 repeatedly asks us to notice the blessings around us.\n\nLet today’s joy remind you of the good that still exists.',
+          'Quran 2:152 reminds us to remember Allah and be grateful.\n\nThis happy feeling is worth protecting and appreciating.',
+          'Quran 31:12 reminds us that gratitude benefits the grateful heart.\n\nSmile at this moment. You deserve to feel light.',
+          'Quran 16:18 reminds us that blessings cannot truly be counted.\n\nLet this joyful moment become a memory you can return to later.',
+        ],
+      },
+      'Motivational Quote': {
+        'Stressed': [
+          'Pause. Breathe. You do not have to fix everything at once. One small step is enough for now.',
+          'Stress can make everything feel urgent. Slow down and choose the next right action.',
+          'You are allowed to rest before continuing. Rest is not failure; it is preparation.',
+          'This moment feels intense, but you have handled difficult days before.',
+          'Focus on what you can control right now. Let the rest wait for a little while.',
+        ],
+        'Sad': [
+          'It is okay to feel low. Your emotions are not weakness; they are part of being human.',
+          'Be gentle with yourself today. Healing does not need to be rushed.',
+          'Sad days do not erase your strength. They only ask you to move softly.',
+          'You are not behind. You are simply going through something that needs care.',
+          'Let yourself feel, but do not let this feeling convince you that hope is gone.',
+        ],
+        'Calm': [
+          'You are safe in this moment. Let your thoughts settle gently, one breath at a time.',
+          'Calm is a quiet kind of strength. Stay present and protect this peace.',
+          'This is a good moment to listen to yourself without pressure.',
+          'Let your mind slow down. You do not always need to be rushing.',
+          'Peace grows when you give yourself permission to pause.',
+        ],
+        'Happy': [
+          'Celebrate this moment. Small moments of joy matter, and you deserve them.',
+          'Let yourself enjoy the good without feeling guilty for it.',
+          'Happiness is worth noticing. Save this feeling in your heart.',
+          'Today gave you something bright. Let it remind you that good days can return.',
+          'Share your light with yourself first. You deserve this joy.',
+        ],
+      },
+    };
+
+    final moodResponses =
+        responses[type]?[mood] ?? responses[type]?['Calm'] ?? const [];
+
+    if (moodResponses.isEmpty) {
+      return 'Take a slow breath. You are safe in this moment, and your feelings matter.';
     }
+
+    final seed =
+        DateTime.now().microsecondsSinceEpoch +
+        _journalController.text.hashCode +
+        mood.hashCode +
+        type.hashCode;
+
+    return moodResponses[seed.abs() % moodResponses.length];
   }
 
   @override
@@ -140,11 +194,11 @@ void _startNewReflection() {
                   const SizedBox(height: 18),
                   _saveButton(),
                   if (_responseText != null) ...[
-  const SizedBox(height: 22),
-  _responseCard(),
-  const SizedBox(height: 14),
-  _newReflectionButton(),
-],
+                    const SizedBox(height: 22),
+                    _responseCard(),
+                    const SizedBox(height: 14),
+                    _newReflectionButton(),
+                  ],
                 ],
               ),
             ),
@@ -160,11 +214,7 @@ void _startNewReflection() {
         gradient: LinearGradient(
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
-          colors: [
-            Color(0xFFF7F1FF),
-            Color(0xFFEDE2FF),
-            Color(0xFFFDF7FF),
-          ],
+          colors: [Color(0xFFF7F1FF), Color(0xFFEDE2FF), Color(0xFFFDF7FF)],
         ),
       ),
       child: Stack(
@@ -204,16 +254,16 @@ void _startNewReflection() {
     return Row(
       children: [
         _glassCircleButton(
-  icon: Icons.history_rounded,
-  onTap: () {
-    Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (context) => const JournalHistoryScreen(),
-      ),
-    );
-  },
-),
+          icon: Icons.history_rounded,
+          onTap: () {
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (context) => const JournalHistoryScreen(),
+              ),
+            );
+          },
+        ),
         const Spacer(),
         Text(
           'Reflection Journal',
@@ -224,10 +274,7 @@ void _startNewReflection() {
           ),
         ),
         const Spacer(),
-        _glassCircleButton(
-          icon: Icons.lock_outline_rounded,
-          onTap: () {},
-        ),
+        _glassCircleButton(icon: Icons.lock_outline_rounded, onTap: () {}),
       ],
     );
   }
@@ -297,8 +344,9 @@ void _startNewReflection() {
                   ),
                   boxShadow: [
                     BoxShadow(
-                      color: const Color(0xFF9C6BFF)
-                          .withOpacity(isSelected ? 0.20 : 0.08),
+                      color: const Color(
+                        0xFF9C6BFF,
+                      ).withOpacity(isSelected ? 0.20 : 0.08),
                       blurRadius: 18,
                       offset: const Offset(0, 8),
                     ),
@@ -380,10 +428,7 @@ void _startNewReflection() {
     );
   }
 
-  Widget _choiceChip({
-    required String title,
-    required IconData icon,
-  }) {
+  Widget _choiceChip({required String title, required IconData icon}) {
     final isSelected = _supportType == title;
 
     return GestureDetector(
@@ -399,16 +444,11 @@ void _startNewReflection() {
           borderRadius: BorderRadius.circular(22),
           gradient: isSelected
               ? const LinearGradient(
-                  colors: [
-                    Color(0xFFB16CFF),
-                    Color(0xFF8C6BFF),
-                  ],
+                  colors: [Color(0xFFB16CFF), Color(0xFF8C6BFF)],
                 )
               : null,
           color: isSelected ? null : Colors.white.withOpacity(0.45),
-          border: Border.all(
-            color: Colors.white.withOpacity(0.55),
-          ),
+          border: Border.all(color: Colors.white.withOpacity(0.55)),
           boxShadow: [
             BoxShadow(
               color: const Color(0xFF8C6BFF).withOpacity(0.12),
@@ -450,10 +490,7 @@ void _startNewReflection() {
         decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(24),
           gradient: const LinearGradient(
-            colors: [
-              Color(0xFFB16CFF),
-              Color(0xFF7A5CFF),
-            ],
+            colors: [Color(0xFFB16CFF), Color(0xFF7A5CFF)],
           ),
           boxShadow: [
             BoxShadow(
@@ -476,48 +513,48 @@ void _startNewReflection() {
       ),
     );
   }
-Widget _newReflectionButton() {
-  return GestureDetector(
-    onTap: _startNewReflection,
-    child: Container(
-      height: 54,
-      width: double.infinity,
-      decoration: BoxDecoration(
-        color: Colors.white.withOpacity(0.50),
-        borderRadius: BorderRadius.circular(22),
-        border: Border.all(
-          color: Colors.white.withOpacity(0.65),
-        ),
-        boxShadow: [
-          BoxShadow(
-            color: const Color(0xFF8C6BFF).withOpacity(0.10),
-            blurRadius: 18,
-            offset: const Offset(0, 8),
-          ),
-        ],
-      ),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          const Icon(
-            Icons.add_circle_outline_rounded,
-            color: Color(0xFF8D5CFF),
-            size: 20,
-          ),
-          const SizedBox(width: 8),
-          Text(
-            'New Reflection',
-            style: GoogleFonts.poppins(
-              color: const Color(0xFF6F55D9),
-              fontSize: 14,
-              fontWeight: FontWeight.w800,
+
+  Widget _newReflectionButton() {
+    return GestureDetector(
+      onTap: _startNewReflection,
+      child: Container(
+        height: 54,
+        width: double.infinity,
+        decoration: BoxDecoration(
+          color: Colors.white.withOpacity(0.50),
+          borderRadius: BorderRadius.circular(22),
+          border: Border.all(color: Colors.white.withOpacity(0.65)),
+          boxShadow: [
+            BoxShadow(
+              color: const Color(0xFF8C6BFF).withOpacity(0.10),
+              blurRadius: 18,
+              offset: const Offset(0, 8),
             ),
-          ),
-        ],
+          ],
+        ),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            const Icon(
+              Icons.add_circle_outline_rounded,
+              color: Color(0xFF8D5CFF),
+              size: 20,
+            ),
+            const SizedBox(width: 8),
+            Text(
+              'New Reflection',
+              style: GoogleFonts.poppins(
+                color: const Color(0xFF6F55D9),
+                fontSize: 14,
+                fontWeight: FontWeight.w800,
+              ),
+            ),
+          ],
+        ),
       ),
-    ),
-  );
-}
+    );
+  }
+
   Widget _responseCard() {
     return _glassContainer(
       child: Column(
@@ -570,20 +607,14 @@ Widget _newReflectionButton() {
               shape: BoxShape.circle,
               border: Border.all(color: Colors.white.withOpacity(0.5)),
             ),
-            child: Icon(
-              icon,
-              color: const Color(0xFF6A5B78),
-              size: 19,
-            ),
+            child: Icon(icon, color: const Color(0xFF6A5B78), size: 19),
           ),
         ),
       ),
     );
   }
 
-  Widget _glassContainer({
-    required Widget child,
-  }) {
+  Widget _glassContainer({required Widget child}) {
     return ClipRRect(
       borderRadius: BorderRadius.circular(30),
       child: BackdropFilter(
@@ -594,9 +625,7 @@ Widget _newReflectionButton() {
           decoration: BoxDecoration(
             color: Colors.white.withOpacity(0.52),
             borderRadius: BorderRadius.circular(30),
-            border: Border.all(
-              color: Colors.white.withOpacity(0.55),
-            ),
+            border: Border.all(color: Colors.white.withOpacity(0.55)),
             boxShadow: [
               BoxShadow(
                 color: const Color(0xFF8C6BFF).withOpacity(0.10),
