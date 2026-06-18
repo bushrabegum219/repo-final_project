@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:ui';
 
 import 'package:audioplayers/audioplayers.dart';
 import 'package:connectivity_plus/connectivity_plus.dart';
@@ -7,6 +8,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:geocoding/geocoding.dart';
 import 'package:geolocator/geolocator.dart';
+import 'package:google_fonts/google_fonts.dart';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -21,12 +23,24 @@ class SosAlarmScreen extends StatefulWidget {
 class _SosAlarmScreenState extends State<SosAlarmScreen> {
   final AudioPlayer _audioPlayer = AudioPlayer();
 
+  static const Color _bgTop = Color(0xFF62B8F6);
+  static const Color _bgMid = Color(0xFF78D5F2);
+  static const Color _bgBottom = Color(0xFFE8F6FF);
+  static const Color _deepInk = Color(0xFF14213D);
+  static const Color _mutedInk = Color(0xFF5E6B7E);
+  static const Color _cardDark = Color(0xFF3A2147);
+  static const Color _cardBlue = Color(0xFFB8D8FF);
+  static const Color _danger = Color(0xFFFF385C);
+  static const Color _dangerDark = Color(0xFFD90429);
+  static const Color _safeGreen = Color(0xFF14B8A6);
+
   bool _isAlarmActive = false;
   bool _isLoading = false;
   bool _isOnline = false;
   bool _soundVibrationOn = true;
+
   String _defaultSosMessage =
-    "Emergency! I need help. Please contact me as soon as possible.";
+      "Emergency! I need help. Please contact me as soon as possible.";
   bool _autoShareLocationOn = true;
 
   Timer? _vibrationTimer;
@@ -43,7 +57,7 @@ class _SosAlarmScreenState extends State<SosAlarmScreen> {
   void initState() {
     super.initState();
     _checkOnlineStatus();
-     _loadUserSettings();
+    _loadUserSettings();
   }
 
   @override
@@ -55,52 +69,51 @@ class _SosAlarmScreenState extends State<SosAlarmScreen> {
   }
 
   Future<void> _checkOnlineStatus() async {
-  final result = await Connectivity().checkConnectivity();
-
-  if (!mounted) return;
-
-  setState(() {
-    _isOnline = !result.contains(ConnectivityResult.none);
-  });
-}
-
-Future<void> _loadUserSettings() async {
-  final user = Supabase.instance.client.auth.currentUser;
-
-  if (user == null) return;
-
-  try {
-    final data = await Supabase.instance.client
-        .from('user_settings')
-        .select('sound_vibration_on, default_sos_message, auto_share_location_on')
-        .eq('user_id', user.id)
-        .maybeSingle();
-
-    if (data == null) return;
+    final result = await Connectivity().checkConnectivity();
 
     if (!mounted) return;
 
     setState(() {
-      _soundVibrationOn = data['sound_vibration_on'] == true;
-      _defaultSosMessage = data['default_sos_message']?.toString() ??
-          "Emergency! I need help. Please contact me as soon as possible.";
-      _autoShareLocationOn = data['auto_share_location_on'] == true;
+      _isOnline = !result.contains(ConnectivityResult.none);
     });
-  } catch (e) {
-    debugPrint("SOS SETTINGS LOAD ERROR: $e");
   }
-}
 
+  Future<void> _loadUserSettings() async {
+    final user = Supabase.instance.client.auth.currentUser;
 
+    if (user == null) return;
+
+    try {
+      final data = await Supabase.instance.client
+          .from('user_settings')
+          .select(
+            'sound_vibration_on, default_sos_message, auto_share_location_on',
+          )
+          .eq('user_id', user.id)
+          .maybeSingle();
+
+      if (data == null) return;
+      if (!mounted) return;
+
+      setState(() {
+        _soundVibrationOn = data['sound_vibration_on'] == true;
+        _defaultSosMessage = data['default_sos_message']?.toString() ??
+            "Emergency! I need help. Please contact me as soon as possible.";
+        _autoShareLocationOn = data['auto_share_location_on'] == true;
+      });
+    } catch (e) {
+      debugPrint("SOS SETTINGS LOAD ERROR: $e");
+    }
+  }
 
   Future<void> _startAlarmSoundLoop() async {
-  if (!_soundVibrationOn) {
-    debugPrint("SOS sound and vibration disabled from settings");
-    return;
-  }
+    if (!_soundVibrationOn) {
+      debugPrint("SOS sound and vibration disabled from settings");
+      return;
+    }
 
-  try {
-    await _audioPlayer.stop();
+    try {
+      await _audioPlayer.stop();
       await _audioPlayer.setReleaseMode(ReleaseMode.loop);
       await _audioPlayer.setVolume(1.0);
       await _audioPlayer.play(AssetSource('sos_alarm.mp3'));
@@ -118,7 +131,7 @@ Future<void> _loadUserSettings() async {
       debugPrint("SOS AUDIO ERROR: $e");
       SystemSound.play(SystemSoundType.alert);
       HapticFeedback.heavyImpact();
-      _showMessage("Alarm sound file error. Check assets/sos_alarm.mp3");
+      _showMessage("Alarm sound could not start");
     }
   }
 
@@ -161,7 +174,7 @@ Future<void> _loadUserSettings() async {
 
         setState(() {
           _statusText = "SOS alarm active";
-          _subText = "Location permission denied. Alarm still running.";
+          _subText = "Location permission denied. Alarm is still running.";
         });
 
         return false;
@@ -341,15 +354,15 @@ Future<void> _loadUserSettings() async {
     await _checkOnlineStatus();
 
     if (!_isOnline) {
-      _showMessage("Offline: SOS saved locally only");
+      _showMessage("Emergency location saved on this device");
       return;
     }
 
     final user = Supabase.instance.client.auth.currentUser;
 
     if (user == null) {
-      _showMessage("Please login first to save SOS online");
       debugPrint("SOS SAVE ERROR: User not logged in");
+      _showMessage("Emergency location saved on this device");
       return;
     }
 
@@ -369,10 +382,10 @@ Future<void> _loadUserSettings() async {
       );
 
       debugPrint("SOS SAVE SUCCESS");
-      _showMessage("SOS alert saved to Supabase");
+      _showMessage("Emergency location saved");
     } catch (e) {
       debugPrint("SOS SAVE ERROR: $e");
-      _showMessage("SOS saved locally, Supabase save failed");
+      _showMessage("Emergency location saved on this device");
     }
   }
 
@@ -431,9 +444,7 @@ Future<void> _loadUserSettings() async {
         _accuracy = position.accuracy;
         _address = address;
         _statusText = "SOS alarm active";
-        _subText = _isOnline
-            ? "Emergency alert saved online and locally"
-            : "Offline mode: SOS saved locally";
+        _subText = "Emergency location captured";
       });
 
       await _saveSosToSupabase(
@@ -463,8 +474,8 @@ Future<void> _loadUserSettings() async {
           _longitude = lastPosition.longitude;
           _accuracy = lastPosition.accuracy;
           _address = address;
-          _statusText = "SOS alarm active with backup location";
-          _subText = "Live GPS failed, using last known location";
+          _statusText = "SOS alarm active";
+          _subText = "Using your last known emergency location";
         });
 
         await _saveSosToSupabase(
@@ -506,28 +517,29 @@ Future<void> _loadUserSettings() async {
   }
 
   Future<void> _copySosInfo() async {
-  final locationText = (_latitude == null || _longitude == null)
-      ? "Location not available"
-      : "$_address\nCoordinates: ${_latitude!.toStringAsFixed(6)}, ${_longitude!.toStringAsFixed(6)}";
+    final locationText = (_latitude == null || _longitude == null)
+        ? "Location not available"
+        : "$_address\nCoordinates: ${_latitude!.toStringAsFixed(6)}, ${_longitude!.toStringAsFixed(6)}";
 
-  final accuracyText = _accuracy == null
-      ? "Accuracy not available"
-      : "Accuracy: ${_accuracy!.toStringAsFixed(1)} meters";
+    final accuracyText = _accuracy == null
+        ? "Accuracy not available"
+        : "Accuracy: ${_accuracy!.toStringAsFixed(1)} meters";
 
-  final sosText = _autoShareLocationOn
-      ? "🚨 SOS Emergency Alert\n"
-          "$_defaultSosMessage\n\n"
-          "Location: $locationText\n"
-          "$accuracyText"
-      : "🚨 SOS Emergency Alert\n"
-          "$_defaultSosMessage";
+    final sosText = _autoShareLocationOn
+        ? "🚨 SOS Emergency Alert\n"
+            "$_defaultSosMessage\n\n"
+            "Location: $locationText\n"
+            "$accuracyText"
+        : "🚨 SOS Emergency Alert\n"
+            "$_defaultSosMessage";
 
-  await Clipboard.setData(
-    ClipboardData(text: sosText),
-  );
+    await Clipboard.setData(
+      ClipboardData(text: sosText),
+    );
 
-  _showMessage("SOS info copied");
-}
+    _showMessage("SOS info copied");
+  }
+
   String _coordinateText() {
     if (_latitude == null || _longitude == null) {
       return "Coordinates not captured yet";
@@ -555,278 +567,677 @@ Future<void> _loadUserSettings() async {
     );
   }
 
-  Color get _mainColor =>
-      _isAlarmActive ? const Color(0xFFD90429) : const Color(0xFFFF3B45);
+  Color get _mainColor => _isAlarmActive ? _dangerDark : _danger;
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFFFF5F7),
-      body: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.all(22),
-          child: Column(
-            children: [
-              Row(
+      backgroundColor: _bgBottom,
+      body: Stack(
+        children: [
+          _background(),
+          Positioned(
+            top: -90,
+            right: -90,
+            child: _glowBlob(
+              color: _bgTop,
+              size: 300,
+              opacity: 0.32,
+            ),
+          ),
+          Positioned(
+            top: 235,
+            left: -125,
+            child: _glowBlob(
+              color: const Color(0xFF5B2A60),
+              size: 280,
+              opacity: 0.18,
+            ),
+          ),
+          Positioned(
+            bottom: -90,
+            right: -70,
+            child: _glowBlob(
+              color: _bgMid,
+              size: 260,
+              opacity: 0.24,
+            ),
+          ),
+          SafeArea(
+            child: SingleChildScrollView(
+              physics: const BouncingScrollPhysics(),
+              padding: const EdgeInsets.fromLTRB(22, 16, 22, 24),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  IconButton(
-                    onPressed: () => Navigator.pop(context),
-                    icon: const Icon(Icons.arrow_back_ios_new),
-                  ),
-                  const Spacer(),
-                  const Text(
-                    "SOS Alarm",
-                    style: TextStyle(
-                      fontSize: 20,
-                      fontWeight: FontWeight.bold,
+                  _topBar(),
+                  const SizedBox(height: 28),
+                  Text(
+                    "SOS",
+                    style: GoogleFonts.poppins(
+                      color: _deepInk,
+                      fontSize: 44,
+                      height: 0.92,
+                      fontWeight: FontWeight.w900,
+                      letterSpacing: -1.2,
                     ),
                   ),
-                  const Spacer(),
-                  const SizedBox(width: 48),
+                  Text(
+                    "alarm",
+                    style: GoogleFonts.poppins(
+                      color: _cardDark,
+                      fontSize: 44,
+                      height: 0.98,
+                      fontWeight: FontWeight.w900,
+                      letterSpacing: -1.2,
+                    ),
+                  ),
+                  const SizedBox(height: 10),
+                  Text(
+                    "Activate a loud emergency alarm and keep your emergency location ready.",
+                    style: GoogleFonts.poppins(
+                      color: _mutedInk,
+                      fontSize: 13,
+                      height: 1.45,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                  const SizedBox(height: 22),
+                  _heroCard(),
+                  const SizedBox(height: 22),
+                  Center(child: _alarmPulseButton()),
+                  const SizedBox(height: 22),
+                  Center(
+                    child: Text(
+                      _isAlarmActive ? "SOS Alarm Active" : "Loud SOS Alarm",
+                      textAlign: TextAlign.center,
+                      style: GoogleFonts.poppins(
+                        color: _deepInk,
+                        fontSize: 26,
+                        fontWeight: FontWeight.w900,
+                        letterSpacing: -0.5,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Center(
+                    child: Text(
+                      _isAlarmActive
+                          ? "Alarm is active. Your emergency location is being captured."
+                          : "Tap activate only when you need emergency attention.",
+                      textAlign: TextAlign.center,
+                      style: GoogleFonts.poppins(
+                        color: _mutedInk,
+                        fontSize: 13,
+                        height: 1.45,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 20),
+                  _locationCard(),
+                  const SizedBox(height: 20),
+                  _primaryButton(),
+                  const SizedBox(height: 12),
+                  _secondaryButton(),
+                  const SizedBox(height: 18),
+                  Center(
+                    child: Text(
+                      "Tap only during emergency",
+                      style: GoogleFonts.poppins(
+                        color: _mutedInk.withValues(alpha: 0.72),
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
                 ],
               ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
 
-              const Spacer(),
+  Widget _background() {
+    return Container(
+      decoration: const BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [
+            _bgBottom,
+            Color(0xFFDDF5FF),
+            _bgMid,
+          ],
+        ),
+      ),
+    );
+  }
 
-              GestureDetector(
-                onTap: _activateSosAlarm,
-                child: AnimatedContainer(
-                  duration: const Duration(milliseconds: 250),
-                  height: _isAlarmActive ? 245 : 230,
-                  width: _isAlarmActive ? 245 : 230,
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    color: _mainColor.withOpacity(0.12),
-                  ),
-                  child: Center(
-                    child: Container(
-                      height: _isAlarmActive ? 185 : 170,
-                      width: _isAlarmActive ? 185 : 170,
-                      decoration: BoxDecoration(
-                        shape: BoxShape.circle,
-                        color: _mainColor.withOpacity(0.20),
-                      ),
-                      child: Center(
-                        child: Container(
-                          height: _isAlarmActive ? 132 : 120,
-                          width: _isAlarmActive ? 132 : 120,
-                          decoration: BoxDecoration(
-                            color: _mainColor,
-                            shape: BoxShape.circle,
-                            boxShadow: [
-                              BoxShadow(
-                                color: _mainColor.withOpacity(0.45),
-                                blurRadius: 35,
-                                spreadRadius: 8,
-                              ),
-                            ],
-                          ),
-                          child: Icon(
-                            _isAlarmActive
-                                ? Icons.warning_amber_rounded
-                                : Icons.notifications_active,
-                            color: Colors.white,
-                            size: _isAlarmActive ? 64 : 58,
-                          ),
-                        ),
-                      ),
-                    ),
-                  ),
-                ),
+  Widget _topBar() {
+    return Row(
+      children: [
+        _circleButton(
+          icon: Icons.arrow_back_ios_new_rounded,
+          onTap: () => Navigator.pop(context),
+        ),
+        const Spacer(),
+        _glassPill(
+          icon: Icons.notifications_active_rounded,
+          text: "SOS Alarm",
+        ),
+      ],
+    );
+  }
+
+  Widget _heroCard() {
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(30),
+      child: BackdropFilter(
+        filter: ImageFilter.blur(sigmaX: 18, sigmaY: 18),
+        child: Container(
+          width: double.infinity,
+          padding: const EdgeInsets.all(18),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(30),
+            gradient: LinearGradient(
+              begin: Alignment.centerLeft,
+              end: Alignment.centerRight,
+              colors: [
+                _cardDark.withValues(alpha: 0.78),
+                const Color(0xFF788EB5).withValues(alpha: 0.58),
+                _cardBlue.withValues(alpha: 0.50),
+              ],
+            ),
+            border: Border.all(
+              color: Colors.white.withValues(alpha: 0.22),
+              width: 1.2,
+            ),
+            boxShadow: [
+              BoxShadow(
+                color: _cardDark.withValues(alpha: 0.18),
+                blurRadius: 26,
+                offset: const Offset(0, 16),
               ),
-
-              const SizedBox(height: 28),
-
-              Text(
-                _isAlarmActive ? "SOS Alarm Active" : "Loud SOS Alarm",
-                style: const TextStyle(
-                  fontSize: 27,
-                  fontWeight: FontWeight.bold,
-                  color: Color(0xFF171722),
-                ),
-              ),
-
-              const SizedBox(height: 10),
-
-              Text(
-                _isAlarmActive
-                    ? "Alarm is active. Your emergency location is being saved."
-                    : "Activate a loud emergency alarm and save your emergency location.",
-                textAlign: TextAlign.center,
-                style: const TextStyle(
-                  fontSize: 14,
-                  color: Colors.black45,
-                  height: 1.5,
-                ),
-              ),
-
-              const SizedBox(height: 20),
-
+            ],
+          ),
+          child: Row(
+            children: [
               Container(
-                width: double.infinity,
-                padding: const EdgeInsets.all(14),
+                height: 66,
+                width: 66,
                 decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(18),
+                  color: Colors.white.withValues(alpha: 0.22),
+                  borderRadius: BorderRadius.circular(22),
                   border: Border.all(
-                    color: const Color(0xFFFFD6DC),
-                    width: 1,
+                    color: Colors.white.withValues(alpha: 0.20),
                   ),
                 ),
+                child: const Icon(
+                  Icons.notifications_active_rounded,
+                  color: Colors.white,
+                  size: 32,
+                ),
+              ),
+              const SizedBox(width: 16),
+              Expanded(
                 child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Row(
-                      children: [
-                        Icon(
-                          _isOnline ? Icons.cloud_done : Icons.cloud_off,
-                          color: _isOnline
-                              ? const Color(0xFF2EAD69)
-                              : const Color(0xFFFF9F43),
-                          size: 18,
-                        ),
-                        const SizedBox(width: 8),
-                        Expanded(
-                          child: Text(
-                            _isOnline
-                                ? "Online: Supabase save available"
-                                : "Offline: local save only",
-                            style: TextStyle(
-                              color: _isOnline
-                                  ? const Color(0xFF2EAD69)
-                                  : const Color(0xFFFF9F43),
-                              fontSize: 12,
-                              fontWeight: FontWeight.w700,
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 10),
-                    Align(
-                      alignment: Alignment.centerLeft,
-                      child: Text(
-                        _address,
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(
-                          color: Color(0xFF171722),
-                          fontSize: 13,
-                          fontWeight: FontWeight.w700,
-                        ),
+                    Text(
+                      "Emergency alarm",
+                      style: GoogleFonts.poppins(
+                        color: Colors.white,
+                        fontSize: 18,
+                        fontWeight: FontWeight.w900,
                       ),
                     ),
-                    const SizedBox(height: 6),
-                    Align(
-                      alignment: Alignment.centerLeft,
-                      child: Text(
-                        _coordinateText(),
-                        style: const TextStyle(
-                          color: Colors.black45,
-                          fontSize: 12,
-                          fontWeight: FontWeight.w500,
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: 4),
-                    Align(
-                      alignment: Alignment.centerLeft,
-                      child: Text(
-                        _accuracyText(),
-                        style: const TextStyle(
-                          color: Colors.black38,
-                          fontSize: 12,
-                          fontWeight: FontWeight.w500,
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    Align(
-                      alignment: Alignment.centerLeft,
-                      child: Text(
-                        "$_statusText • $_subText",
-                        style: const TextStyle(
-                          color: Colors.black45,
-                          fontSize: 11,
-                          fontWeight: FontWeight.w500,
-                        ),
+                    const SizedBox(height: 5),
+                    Text(
+                      "Loud sound, vibration, and emergency location capture.",
+                      style: GoogleFonts.poppins(
+                        color: Colors.white.withValues(alpha: 0.82),
+                        fontSize: 12.5,
+                        height: 1.35,
+                        fontWeight: FontWeight.w500,
                       ),
                     ),
                   ],
                 ),
               ),
+              const SizedBox(width: 10),
+              Icon(
+                _isAlarmActive
+                    ? Icons.warning_amber_rounded
+                    : Icons.arrow_forward_ios_rounded,
+                color: Colors.white,
+                size: 24,
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
 
-              const Spacer(),
-
-              GestureDetector(
-                onTap: _isLoading ? null : _activateSosAlarm,
-                child: Container(
-                  height: 58,
-                  width: double.infinity,
-                  decoration: BoxDecoration(
-                    color: _isAlarmActive ? Colors.black87 : _mainColor,
-                    borderRadius: BorderRadius.circular(18),
-                    boxShadow: [
-                      BoxShadow(
-                        color: _mainColor.withOpacity(0.30),
-                        blurRadius: 18,
-                        offset: const Offset(0, 8),
-                      ),
-                    ],
-                  ),
-                  child: Center(
-                    child: Text(
-                      _isLoading
-                          ? "Saving Location..."
-                          : _isAlarmActive
-                              ? "Stop Alarm"
-                              : "Activate Alarm",
-                      style: const TextStyle(
+  Widget _alarmPulseButton() {
+    return GestureDetector(
+      onTap: _isLoading ? null : _activateSosAlarm,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 250),
+        height: _isAlarmActive ? 230 : 212,
+        width: _isAlarmActive ? 230 : 212,
+        decoration: BoxDecoration(
+          shape: BoxShape.circle,
+          color: _mainColor.withValues(alpha: 0.10),
+          border: Border.all(
+            color: Colors.white.withValues(alpha: 0.40),
+          ),
+        ),
+        child: Center(
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 250),
+            height: _isAlarmActive ? 170 : 156,
+            width: _isAlarmActive ? 170 : 156,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              color: _mainColor.withValues(alpha: 0.17),
+              border: Border.all(
+                color: Colors.white.withValues(alpha: 0.34),
+              ),
+            ),
+            child: Center(
+              child: AnimatedContainer(
+                duration: const Duration(milliseconds: 250),
+                height: _isAlarmActive ? 118 : 108,
+                width: _isAlarmActive ? 118 : 108,
+                decoration: BoxDecoration(
+                  color: _mainColor,
+                  shape: BoxShape.circle,
+                  boxShadow: [
+                    BoxShadow(
+                      color: _mainColor.withValues(alpha: 0.38),
+                      blurRadius: 34,
+                      spreadRadius: 8,
+                    ),
+                  ],
+                ),
+                child: _isLoading
+                    ? const Padding(
+                        padding: EdgeInsets.all(34),
+                        child: CircularProgressIndicator(
+                          color: Colors.white,
+                          strokeWidth: 3,
+                        ),
+                      )
+                    : Icon(
+                        _isAlarmActive
+                            ? Icons.warning_amber_rounded
+                            : Icons.notifications_active_rounded,
                         color: Colors.white,
-                        fontSize: 16,
-                        fontWeight: FontWeight.bold,
+                        size: _isAlarmActive ? 58 : 52,
                       ),
-                    ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _locationCard() {
+    return _glassCard(
+      radius: 26,
+      padding: const EdgeInsets.all(17),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              _softIcon(
+                icon: _latitude == null
+                    ? Icons.location_searching_rounded
+                    : Icons.location_on_rounded,
+                color: _latitude == null ? _cardDark : _safeGreen,
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Text(
+                  "Emergency location",
+                  style: GoogleFonts.poppins(
+                    color: _deepInk,
+                    fontSize: 15,
+                    fontWeight: FontWeight.w900,
                   ),
                 ),
               ),
-
-              const SizedBox(height: 12),
-
-              GestureDetector(
-                onTap: _copySosInfo,
-                child: Container(
-                  height: 50,
-                  width: double.infinity,
-                  decoration: BoxDecoration(
-                    color: const Color(0xFFFFE8EC),
-                    borderRadius: BorderRadius.circular(16),
-                  ),
-                  child: const Center(
-                    child: Text(
-                      "Copy SOS Info",
-                      style: TextStyle(
-                        color: Color(0xFFFF3B45),
-                        fontSize: 14,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
+              Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 10,
+                  vertical: 6,
+                ),
+                decoration: BoxDecoration(
+                  color: (_latitude == null ? _cardDark : _safeGreen)
+                      .withValues(alpha: 0.10),
+                  borderRadius: BorderRadius.circular(100),
+                ),
+                child: Text(
+                  _latitude == null ? "Pending" : "Captured",
+                  style: GoogleFonts.poppins(
+                    color: _latitude == null ? _cardDark : _safeGreen,
+                    fontSize: 10.5,
+                    fontWeight: FontWeight.w900,
                   ),
                 ),
               ),
+            ],
+          ),
+          const SizedBox(height: 14),
+          Text(
+            _address,
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+            style: GoogleFonts.poppins(
+              color: _deepInk,
+              fontSize: 13,
+              fontWeight: FontWeight.w800,
+            ),
+          ),
+          const SizedBox(height: 8),
+          _infoRow(
+            icon: Icons.my_location_rounded,
+            text: _coordinateText(),
+          ),
+          const SizedBox(height: 6),
+          _infoRow(
+            icon: Icons.speed_rounded,
+            text: _accuracyText(),
+          ),
+          const SizedBox(height: 12),
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: Colors.white.withValues(alpha: 0.38),
+              borderRadius: BorderRadius.circular(18),
+              border: Border.all(
+                color: Colors.white.withValues(alpha: 0.45),
+              ),
+            ),
+            child: Text(
+              "$_statusText • $_subText",
+              style: GoogleFonts.poppins(
+                color: _mutedInk,
+                fontSize: 11.5,
+                height: 1.35,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
 
-              const SizedBox(height: 14),
+  Widget _primaryButton() {
+    return GestureDetector(
+      onTap: _isLoading ? null : _activateSosAlarm,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 180),
+        height: 60,
+        width: double.infinity,
+        decoration: BoxDecoration(
+          color: _isAlarmActive ? _deepInk : _danger,
+          borderRadius: BorderRadius.circular(22),
+          boxShadow: [
+            BoxShadow(
+              color: (_isAlarmActive ? _deepInk : _danger).withValues(
+                alpha: 0.26,
+              ),
+              blurRadius: 22,
+              offset: const Offset(0, 12),
+            ),
+          ],
+        ),
+        child: Center(
+          child: Text(
+            _isLoading
+                ? "Saving Location..."
+                : _isAlarmActive
+                    ? "Stop Alarm"
+                    : "Activate Alarm",
+            style: GoogleFonts.poppins(
+              color: Colors.white,
+              fontSize: 15.5,
+              fontWeight: FontWeight.w900,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
 
-              const Text(
-                "Tap only during emergency",
-                style: TextStyle(
-                  color: Colors.black38,
-                  fontSize: 12,
-                  fontWeight: FontWeight.w500,
+  Widget _secondaryButton() {
+    return GestureDetector(
+      onTap: _copySosInfo,
+      child: Container(
+        height: 54,
+        width: double.infinity,
+        decoration: BoxDecoration(
+          color: Colors.white.withValues(alpha: 0.42),
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(
+            color: Colors.white.withValues(alpha: 0.58),
+          ),
+        ),
+        child: Center(
+          child: Text(
+            "Copy SOS Info",
+            style: GoogleFonts.poppins(
+              color: _cardDark,
+              fontSize: 14,
+              fontWeight: FontWeight.w900,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _infoRow({
+    required IconData icon,
+    required String text,
+  }) {
+    return Row(
+      children: [
+        Icon(
+          icon,
+          color: _mutedInk.withValues(alpha: 0.70),
+          size: 17,
+        ),
+        const SizedBox(width: 8),
+        Expanded(
+          child: Text(
+            text,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: GoogleFonts.poppins(
+              color: _mutedInk,
+              fontSize: 11.5,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _glassCard({
+    required Widget child,
+    EdgeInsetsGeometry padding = const EdgeInsets.all(18),
+    double radius = 28,
+  }) {
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(radius),
+      child: BackdropFilter(
+        filter: ImageFilter.blur(sigmaX: 22, sigmaY: 22),
+        child: Container(
+          width: double.infinity,
+          padding: padding,
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(radius),
+            gradient: LinearGradient(
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+              colors: [
+                Colors.white.withValues(alpha: 0.72),
+                Colors.white.withValues(alpha: 0.36),
+              ],
+            ),
+            border: Border.all(
+              color: Colors.white.withValues(alpha: 0.74),
+              width: 1.25,
+            ),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.055),
+                blurRadius: 28,
+                offset: const Offset(0, 16),
+              ),
+              BoxShadow(
+                color: Colors.white.withValues(alpha: 0.50),
+                blurRadius: 10,
+                offset: const Offset(-4, -4),
+              ),
+            ],
+          ),
+          child: child,
+        ),
+      ),
+    );
+  }
+
+  Widget _circleButton({
+    required IconData icon,
+    required VoidCallback onTap,
+  }) {
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(100),
+      child: BackdropFilter(
+        filter: ImageFilter.blur(sigmaX: 16, sigmaY: 16),
+        child: GestureDetector(
+          onTap: onTap,
+          child: Container(
+            height: 50,
+            width: 50,
+            decoration: BoxDecoration(
+              color: Colors.white.withValues(alpha: 0.50),
+              shape: BoxShape.circle,
+              border: Border.all(
+                color: Colors.white.withValues(alpha: 0.76),
+                width: 1.2,
+              ),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.045),
+                  blurRadius: 18,
+                  offset: const Offset(0, 9),
+                ),
+              ],
+            ),
+            child: Icon(
+              icon,
+              color: _deepInk,
+              size: 22,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _glassPill({
+    required IconData icon,
+    required String text,
+  }) {
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(100),
+      child: BackdropFilter(
+        filter: ImageFilter.blur(sigmaX: 16, sigmaY: 16),
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+          decoration: BoxDecoration(
+            color: Colors.white.withValues(alpha: 0.48),
+            borderRadius: BorderRadius.circular(100),
+            border: Border.all(
+              color: Colors.white.withValues(alpha: 0.72),
+            ),
+          ),
+          child: Row(
+            children: [
+              Icon(
+                icon,
+                color: _cardDark,
+                size: 17,
+              ),
+              const SizedBox(width: 7),
+              Text(
+                text,
+                style: GoogleFonts.poppins(
+                  color: _deepInk,
+                  fontSize: 11.5,
+                  fontWeight: FontWeight.w900,
                 ),
               ),
             ],
           ),
         ),
+      ),
+    );
+  }
+
+  Widget _softIcon({
+    required IconData icon,
+    required Color color,
+  }) {
+    return Container(
+      height: 44,
+      width: 44,
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.12),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: Colors.white.withValues(alpha: 0.50),
+        ),
+      ),
+      child: Icon(
+        icon,
+        color: color,
+        size: 22,
+      ),
+    );
+  }
+
+  Widget _glowBlob({
+    required Color color,
+    required double size,
+    required double opacity,
+  }) {
+    return Container(
+      height: size,
+      width: size,
+      decoration: BoxDecoration(
+        shape: BoxShape.circle,
+        color: color.withValues(alpha: opacity),
+        boxShadow: [
+          BoxShadow(
+            color: color.withValues(alpha: opacity),
+            blurRadius: 95,
+            spreadRadius: 26,
+          ),
+        ],
       ),
     );
   }
