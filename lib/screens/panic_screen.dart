@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:just_audio/just_audio.dart';
 import '../services/live_location_tracking_service.dart';
+import 'audio_evidence_screen.dart';
 
 import '../services/audio_recording_service.dart';
 import '../services/panic_service.dart';
@@ -326,6 +327,18 @@ Future<String?> _tryStartLiveTracking() async {
                           const Spacer(),
 Row(
   children: [
+    _circleButton(
+      icon: Icons.graphic_eq_rounded,
+      onTap: () {
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) => const AudioEvidenceScreen(),
+          ),
+        );
+      },
+    ),
+    const SizedBox(width: 8),
     _circleButton(
       icon: Icons.contacts_rounded,
       onTap: () {
