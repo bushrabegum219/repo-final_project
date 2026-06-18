@@ -430,79 +430,114 @@ Container(
 }
 
   Widget _audioCard(LocalAudioEvidence evidence) {
-    final isPlaying = _playingPath == evidence.filePath && _audioPlayer.playing;
+  final isPlaying = _playingPath == evidence.filePath && _audioPlayer.playing;
 
-    return GestureDetector(
-      onTap: () => _playOrPause(evidence),
-      child: Container(
-        margin: const EdgeInsets.only(bottom: 13),
-        padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(26),
-          color: Colors.white.withOpacity(0.10),
-          border: Border.all(
-            color: Colors.white.withOpacity(0.15),
-          ),
-        ),
-        child: Row(
-          children: [
-            Container(
-              height: 54,
-              width: 54,
-              decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(19),
-                gradient: const LinearGradient(
-                  colors: [
-  Color(0xFFFF6B9A),
-  Color(0xFFFFA8C4),
-],
-                ),
-              ),
-              child: Icon(
-                isPlaying
-                    ? Icons.pause_rounded
-                    : Icons.play_arrow_rounded,
-                color: Colors.white,
-                size: 30,
-              ),
-            ),
-            const SizedBox(width: 14),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    evidence.fileName,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: GoogleFonts.poppins(
-                      color: Colors.white,
-                      fontSize: 13,
-                      fontWeight: FontWeight.w800,
-                    ),
-                  ),
-                  const SizedBox(height: 5),
-                  Text(
-                    _formatEvidenceDate(evidence),
-                    style: GoogleFonts.poppins(
-                      color: Colors.white.withOpacity(0.55),
-                      fontSize: 11,
-                      fontWeight: FontWeight.w500,
-                    ),
-                  ),
+  return GestureDetector(
+    onTap: () => _playOrPause(evidence),
+    child: Container(
+      margin: const EdgeInsets.only(bottom: 13),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(26),
+        child: BackdropFilter(
+          filter: ImageFilter.blur(sigmaX: 18, sigmaY: 18),
+          child: Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(26),
+              gradient: LinearGradient(
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors: [
+                  Colors.white.withOpacity(0.96),
+                  const Color(0xFFFFF1EC).withOpacity(0.78),
                 ],
               ),
+              border: Border.all(
+                color: Colors.white.withOpacity(0.96),
+                width: 1.35,
+              ),
+              boxShadow: [
+                BoxShadow(
+                  color: const Color(0xFFFF8A7A).withOpacity(0.11),
+                  blurRadius: 26,
+                  offset: const Offset(0, 14),
+                ),
+              ],
             ),
-            Icon(
-              Icons.chevron_right_rounded,
-              color: Colors.white.withOpacity(0.45),
-              size: 26,
+            child: Row(
+              children: [
+                Container(
+                  height: 56,
+                  width: 56,
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(20),
+                    gradient: const LinearGradient(
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                      colors: [
+                        Color(0xFFFF5F8F),
+                        Color(0xFFFF9A7A),
+                      ],
+                    ),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Color(0xFFFF5B6B).withOpacity(0.20),
+                        blurRadius: 18,
+                        offset: Offset(0, 9),
+                      ),
+                    ],
+                  ),
+                  child: Icon(
+                    isPlaying
+                        ? Icons.pause_rounded
+                        : Icons.play_arrow_rounded,
+                    color: Colors.white,
+                    size: 31,
+                  ),
+                ),
+                const SizedBox(width: 14),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        evidence.fileName,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: GoogleFonts.poppins(
+                          color: const Color(0xFF2B2733),
+                          fontSize: 13.5,
+                          fontWeight: FontWeight.w800,
+                        ),
+                      ),
+                      const SizedBox(height: 5),
+                      Text(
+                        _formatEvidenceDate(evidence),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: GoogleFonts.poppins(
+                          color: const Color(0xFF8B7B78),
+                          fontSize: 11.5,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(width: 8),
+                const Icon(
+                  Icons.chevron_right_rounded,
+                  color: Color(0xFF9A817C),
+                  size: 26,
+                ),
+              ],
             ),
-          ],
+          ),
         ),
       ),
-    );
-  }
+    ),
+  );
+}
 
  Widget _circleButton({
   required IconData icon,
