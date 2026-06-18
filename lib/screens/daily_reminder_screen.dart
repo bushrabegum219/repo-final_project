@@ -194,74 +194,80 @@ class _DailyReminderScreenState extends State<DailyReminderScreen> {
   }
 
   Future<void> _addReminder() async {
-    final user = _supabase.auth.currentUser;
+  final user = _supabase.auth.currentUser;
 
-    if (user == null) {
-      _showMessage("Please login first");
-      return;
-    }
+  if (user == null) {
+    _showMessage("Please login first");
+    return;
+  }
 
-    final title = _titleController.text.trim();
-    final message = _messageController.text.trim();
+  final title = _titleController.text.trim();
+  final message = _messageController.text.trim();
 
-    if (title.isEmpty) {
-      _showMessage("Please enter reminder title");
-      return;
-    }
+  if (title.isEmpty) {
+    _showMessage("Please enter reminder title");
+    return;
+  }
 
-    if (_selectedTime == null) {
-      _showMessage("Please select reminder time");
-      return;
-    }
+  if (_selectedTime == null) {
+    _showMessage("Please select reminder time");
+    return;
+  }
 
-    setState(() {
-      _isSaving = true;
-    });
+  setState(() {
+    _isSaving = true;
+  });
+
+  try {
+    final insertedData = await _supabase
+        .from('daily_reminders')
+        .insert({
+          'user_id': user.id,
+          'title': title,
+          'description': message.isEmpty ? 'Stay safe and protected.' : message,
+          'reminder_date': _dateToSupabase(_selectedDate),
+          'reminder_time': _timeToSupabase(_selectedTime!),
+          'repeat_type': _selectedRepeatType,
+          'is_enabled': true,
+          'is_completed': false,
+        })
+        .select()
+        .single();
+
+    final insertedReminder = Map<String, dynamic>.from(insertedData);
 
     try {
-      final insertedData = await _supabase
-          .from('daily_reminders')
-          .insert({
-            'user_id': user.id,
-            'title': title,
-            'description':
-                message.isEmpty ? 'Stay safe and protected.' : message,
-            'reminder_date': _dateToSupabase(_selectedDate),
-            'reminder_time': _timeToSupabase(_selectedTime!),
-            'repeat_type': _selectedRepeatType,
-            'is_enabled': true,
-            'is_completed': false,
-          })
-          .select()
-          .single();
+      await _scheduleReminderNotification(insertedReminder);
+    } catch (notificationError) {
+      debugPrint("DAILY REMINDER NOTIFICATION ERROR: $notificationError");
+    }
 
-      await _scheduleReminderNotification(
-        Map<String, dynamic>.from(insertedData),
-      );
+    _titleController.clear();
+    _messageController.clear();
 
-      _titleController.clear();
-      _messageController.clear();
+    setState(() {
+      _selectedDate = DateTime.now();
+      _selectedTime = null;
+      _selectedRepeatType = "Daily";
+    });
 
+    await _loadReminders();
+
+    _showMessage("Reminder saved");
+  } on PostgrestException catch (e) {
+    debugPrint("DAILY REMINDER DATABASE SAVE ERROR: ${e.message}");
+    _showMessage("Database error: ${e.message}");
+  } catch (e) {
+    debugPrint("DAILY REMINDER SAVE ERROR: $e");
+    _showMessage("Failed to save reminder: $e");
+  } finally {
+    if (mounted) {
       setState(() {
-        _selectedDate = DateTime.now();
-        _selectedTime = null;
-        _selectedRepeatType = "Daily";
+        _isSaving = false;
       });
-
-      await _loadReminders();
-
-      _showMessage("Reminder saved");
-    } catch (e) {
-      debugPrint("DAILY REMINDER SAVE ERROR: $e");
-      _showMessage("Failed to save reminder");
-    } finally {
-      if (mounted) {
-        setState(() {
-          _isSaving = false;
-        });
-      }
     }
   }
+}
 
   Future<void> _deleteReminder(Map<String, dynamic> reminder) async {
     final id = reminder['id'];
@@ -394,13 +400,26 @@ class _DailyReminderScreenState extends State<DailyReminderScreen> {
     }
   }
 int _activeReminderCount() {
-  return _reminders
-      .where(
-        (reminder) =>
-            reminder['is_enabled'] == true &&
-            reminder['is_completed'] != true,
-      )
-      .length;
+  final now = DateTime.now();
+
+  return _reminders.where((reminder) {
+    final date = _parseReminderDate(reminder);
+    final isEnabled = reminder['is_enabled'] == true;
+    final isCompleted = reminder['is_completed'] == true;
+
+    return _isSameDate(date, now) && isEnabled && !isCompleted;
+  }).length;
+}
+
+int _completedReminderCount() {
+  final now = DateTime.now();
+
+  return _reminders.where((reminder) {
+    final date = _parseReminderDate(reminder);
+    final isCompleted = reminder['is_completed'] == true;
+
+    return _isSameDate(date, now) && isCompleted;
+  }).length;
 }
  List<Map<String, dynamic>> _filteredReminders() {
   final now = DateTime.now();
@@ -880,19 +899,16 @@ int _activeReminderCount() {
                     Row(
                       children: [
                         _statCard(
-                          icon: Icons.notifications_active,
-                          title: "Active",
-                          value: _activeReminderCount().toString(),
-                        ),
+  icon: Icons.notifications_active,
+  title: "Active",
+  value: _activeReminderCount().toString(),
+),
                         const SizedBox(width: 12),
                         _statCard(
-                          icon: Icons.done_all,
-                          title: "Completed",
-                          value: _reminders
-                              .where((item) => item['is_completed'] == true)
-                              .length
-                              .toString(),
-                        ),
+  icon: Icons.done_all,
+  title: "Completed",
+  value: _completedReminderCount().toString(),
+),
                       ],
                     ),
                     const SizedBox(height: 18),
