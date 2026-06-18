@@ -1,3 +1,5 @@
+import 'dart:ui';
+
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -14,6 +16,16 @@ class _TrustedCircleScreenState extends State<TrustedCircleScreen> {
   final SupabaseClient _supabase = Supabase.instance.client;
   final TextEditingController _searchController = TextEditingController();
 
+  static const Color _bgTop = Color(0xFFEAF7F6);
+  static const Color _bgBottom = Color(0xFFDDEBFF);
+  static const Color _ink = Color(0xFF113238);
+  static const Color _muted = Color(0xFF6B838A);
+  static const Color _primary = Color(0xFF007A78);
+  static const Color _primaryLight = Color(0xFF00B4A6);
+  static const Color _blue = Color(0xFF3A86FF);
+  static const Color _danger = Color(0xFFEF476F);
+  static const Color _gold = Color(0xFFFFB703);
+
   bool _isLoading = true;
   String _selectedCategory = "All";
   List<TrustedContact> _contacts = [];
@@ -23,7 +35,7 @@ class _TrustedCircleScreenState extends State<TrustedCircleScreen> {
     super.initState();
     _loadContacts();
     _searchController.addListener(() {
-      setState(() {});
+      if (mounted) setState(() {});
     });
   }
 
@@ -38,14 +50,14 @@ class _TrustedCircleScreenState extends State<TrustedCircleScreen> {
 
     if (user == null) {
       if (!mounted) return;
-      setState(() {
-        _isLoading = false;
-      });
+      setState(() => _isLoading = false);
       _showMessage("Please login first");
       return;
     }
 
     try {
+      setState(() => _isLoading = true);
+
       final data = await _supabase
           .from('trusted_circle')
           .select()
@@ -72,10 +84,7 @@ class _TrustedCircleScreenState extends State<TrustedCircleScreen> {
 
       if (!mounted) return;
 
-      setState(() {
-        _isLoading = false;
-      });
-
+      setState(() => _isLoading = false);
       _showMessage("Failed to load trusted contacts");
     }
   }
@@ -98,8 +107,7 @@ class _TrustedCircleScreenState extends State<TrustedCircleScreen> {
       if (isPrimary) {
         await _supabase
             .from('trusted_circle')
-            .update({'is_primary': false})
-            .eq('user_id', user.id);
+            .update({'is_primary': false}).eq('user_id', user.id);
       }
 
       await _supabase.from('trusted_circle').insert({
@@ -119,7 +127,56 @@ class _TrustedCircleScreenState extends State<TrustedCircleScreen> {
     }
   }
 
+  Future<void> _updateContact({
+    required TrustedContact contact,
+    required String name,
+    required String phone,
+    required String relationship,
+    required String category,
+    required bool isPrimary,
+  }) async {
+    final user = _supabase.auth.currentUser;
+
+    if (user == null) {
+      _showMessage("Please login first");
+      return;
+    }
+
+    if (contact.id.trim().isEmpty) {
+      _showMessage("Contact id not found");
+      return;
+    }
+
+    try {
+      if (isPrimary) {
+        await _supabase
+            .from('trusted_circle')
+            .update({'is_primary': false}).eq('user_id', user.id);
+      }
+
+      await _supabase.from('trusted_circle').update({
+        'name': name,
+        'phone': phone,
+        'relationship': relationship,
+        'category': category,
+        'is_primary': isPrimary,
+        'updated_at': DateTime.now().toIso8601String(),
+      }).eq('id', contact.id);
+
+      _showMessage("Contact updated");
+      await _loadContacts();
+    } catch (e) {
+      debugPrint("TRUSTED CONTACT UPDATE ERROR: $e");
+      _showMessage("Failed to update contact");
+    }
+  }
+
   Future<void> _deleteContact(TrustedContact contact) async {
+    if (contact.id.trim().isEmpty) {
+      _showMessage("Contact id not found");
+      return;
+    }
+
     try {
       await _supabase.from('trusted_circle').delete().eq('id', contact.id);
 
@@ -139,16 +196,19 @@ class _TrustedCircleScreenState extends State<TrustedCircleScreen> {
       return;
     }
 
+    if (contact.id.trim().isEmpty) {
+      _showMessage("Contact id not found");
+      return;
+    }
+
     try {
       await _supabase
           .from('trusted_circle')
-          .update({'is_primary': false})
-          .eq('user_id', user.id);
+          .update({'is_primary': false}).eq('user_id', user.id);
 
       await _supabase
           .from('trusted_circle')
-          .update({'is_primary': true})
-          .eq('id', contact.id);
+          .update({'is_primary': true}).eq('id', contact.id);
 
       _showMessage("${contact.name} set as primary");
       await _loadContacts();
@@ -191,7 +251,7 @@ class _TrustedCircleScreenState extends State<TrustedCircleScreen> {
       return;
     }
 
-    final message =
+    const message =
         'Emergency! I need help. Please contact me as soon as possible.';
 
     final uri = Uri.parse(
@@ -219,7 +279,7 @@ class _TrustedCircleScreenState extends State<TrustedCircleScreen> {
       return;
     }
 
-    final message =
+    const message =
         'Emergency! I need help. Please contact me as soon as possible.';
 
     final phoneNumbers = _contacts
@@ -272,172 +332,128 @@ class _TrustedCircleScreenState extends State<TrustedCircleScreen> {
     final primaryContacts =
         _contacts.where((contact) => contact.isPrimary).toList();
 
-    if (primaryContacts.isNotEmpty) {
-      return primaryContacts.first;
-    }
-
-    if (_contacts.isNotEmpty) {
-      return _contacts.first;
-    }
+    if (primaryContacts.isNotEmpty) return primaryContacts.first;
+    if (_contacts.isNotEmpty) return _contacts.first;
 
     return null;
   }
 
-  void _openAddContactSheet() {
-    final nameController = TextEditingController();
-    final phoneController = TextEditingController();
-    final relationController = TextEditingController();
+  Future<void> _openContactForm({TrustedContact? contact}) async {
+    final isEditing = contact != null;
 
-    String selectedCategory = "Family";
-    bool isPrimary = _contacts.isEmpty;
+    final nameController = TextEditingController(
+      text: isEditing ? contact.name : '',
+    );
+    final phoneController = TextEditingController(
+      text: isEditing ? contact.phone : '',
+    );
+    final relationController = TextEditingController(
+      text: isEditing ? contact.relationship : '',
+    );
 
-    showModalBottomSheet(
+    String selectedCategory = isEditing ? contact.category : "Family";
+    bool isPrimary = isEditing ? contact.isPrimary : _contacts.isEmpty;
+
+    await showModalBottomSheet(
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
+      barrierColor: Colors.black.withValues(alpha: 0.22),
       builder: (sheetContext) {
         return StatefulBuilder(
           builder: (context, setSheetState) {
-            return Container(
-              padding: EdgeInsets.only(
-                left: 20,
-                right: 20,
-                top: 20,
-                bottom: MediaQuery.of(context).viewInsets.bottom + 20,
-              ),
-              decoration: const BoxDecoration(
-                color: Color(0xFFF8F1FF),
-                borderRadius: BorderRadius.vertical(
-                  top: Radius.circular(28),
-                ),
-              ),
-              child: SingleChildScrollView(
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Container(
-                      height: 5,
-                      width: 45,
-                      decoration: BoxDecoration(
-                        color: Colors.black12,
-                        borderRadius: BorderRadius.circular(20),
+            return _bottomSheetShell(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  _sheetHandle(),
+                  const SizedBox(height: 18),
+                  Row(
+                    children: [
+                      _softIconBadge(
+                        icon: isEditing
+                            ? Icons.edit_rounded
+                            : Icons.person_add_alt_1_rounded,
+                        color: _primary,
                       ),
-                    ),
-                    const SizedBox(height: 18),
-                    Text(
-                      "Add Trusted Contact",
-                      style: GoogleFonts.poppins(
-                        fontSize: 18,
-                        fontWeight: FontWeight.w800,
-                        color: const Color(0xFF1F1A2E),
-                      ),
-                    ),
-                    const SizedBox(height: 18),
-                    _inputField(
-                      controller: nameController,
-                      hint: "Contact name",
-                      icon: Icons.person_rounded,
-                    ),
-                    const SizedBox(height: 12),
-                    _inputField(
-                      controller: phoneController,
-                      hint: "Phone number",
-                      icon: Icons.phone_rounded,
-                      keyboardType: TextInputType.phone,
-                    ),
-                    const SizedBox(height: 12),
-                    _inputField(
-                      controller: relationController,
-                      hint: "Relationship, e.g. Mom, Friend",
-                      icon: Icons.favorite_rounded,
-                    ),
-                    const SizedBox(height: 12),
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 14),
-                      decoration: BoxDecoration(
-                        color: Colors.white,
-                        borderRadius: BorderRadius.circular(16),
-                      ),
-                      child: DropdownButtonHideUnderline(
-                        child: DropdownButton<String>(
-                          value: selectedCategory,
-                          isExpanded: true,
-                          items: const [
-                            DropdownMenuItem(
-                              value: "Family",
-                              child: Text("Family"),
-                            ),
-                            DropdownMenuItem(
-                              value: "Friends",
-                              child: Text("Friends"),
-                            ),
-                            DropdownMenuItem(
-                              value: "Work",
-                              child: Text("Work"),
-                            ),
-                          ],
-                          onChanged: (value) {
-                            if (value == null) return;
-
-                            setSheetState(() {
-                              selectedCategory = value;
-                            });
-                          },
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Text(
+                          isEditing
+                              ? "Edit Trusted Contact"
+                              : "Add Trusted Contact",
+                          style: GoogleFonts.poppins(
+                            color: _ink,
+                            fontSize: 19,
+                            fontWeight: FontWeight.w900,
+                          ),
                         ),
                       ),
-                    ),
-                    const SizedBox(height: 12),
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 14,
-                        vertical: 12,
-                      ),
-                      decoration: BoxDecoration(
-                        color: Colors.white,
-                        borderRadius: BorderRadius.circular(16),
-                      ),
-                      child: Row(
-                        children: [
-                          const Icon(
-                            Icons.star_rounded,
-                            color: Color(0xFFAB42F5),
-                          ),
-                          const SizedBox(width: 10),
-                          Expanded(
-                            child: Text(
-                              "Set as primary contact",
-                              style: GoogleFonts.poppins(
-                                fontSize: 13,
-                                fontWeight: FontWeight.w600,
-                              ),
-                            ),
-                          ),
-                          Switch(
-                            value: isPrimary,
-                            activeThumbColor: const Color(0xFFAB42F5),
-                            onChanged: (value) {
-                              setSheetState(() {
-                                isPrimary = value;
-                              });
-                            },
-                          ),
-                        ],
-                      ),
-                    ),
-                    const SizedBox(height: 18),
-                    GestureDetector(
-                      onTap: () async {
-                        final name = nameController.text.trim();
-                        final phone = phoneController.text.trim();
-                        final relation = relationController.text.trim();
+                    ],
+                  ),
+                  const SizedBox(height: 18),
+                  _inputField(
+                    controller: nameController,
+                    hint: "Contact name",
+                    icon: Icons.person_rounded,
+                  ),
+                  const SizedBox(height: 12),
+                  _inputField(
+                    controller: phoneController,
+                    hint: "Phone number",
+                    icon: Icons.phone_rounded,
+                    keyboardType: TextInputType.phone,
+                  ),
+                  const SizedBox(height: 12),
+                  _inputField(
+                    controller: relationController,
+                    hint: "Relationship, e.g. Mom, Friend",
+                    icon: Icons.favorite_rounded,
+                  ),
+                  const SizedBox(height: 12),
+                  _categoryMenu(
+                    selectedCategory: selectedCategory,
+                    onChanged: (value) {
+                      setSheetState(() {
+                        selectedCategory = value;
+                      });
+                    },
+                  ),
+                  const SizedBox(height: 12),
+                  _primaryToggle(
+                    value: isPrimary,
+                    onChanged: (value) {
+                      setSheetState(() {
+                        isPrimary = value;
+                      });
+                    },
+                  ),
+                  const SizedBox(height: 18),
+                  GestureDetector(
+                    onTap: () async {
+                      final name = nameController.text.trim();
+                      final phone = phoneController.text.trim();
+                      final relation = relationController.text.trim();
 
-                        if (name.isEmpty || phone.isEmpty) {
-                          _showMessage("Name and phone are required");
-                          return;
-                        }
+                      if (name.isEmpty || phone.isEmpty) {
+                        _showMessage("Name and phone are required");
+                        return;
+                      }
 
-                        Navigator.pop(sheetContext);
+                      Navigator.pop(sheetContext);
 
+                      if (isEditing) {
+                        await _updateContact(
+                          contact: contact,
+                          name: name,
+                          phone: phone,
+                          relationship:
+                              relation.isEmpty ? selectedCategory : relation,
+                          category: selectedCategory,
+                          isPrimary: isPrimary,
+                        );
+                      } else {
                         await _addContact(
                           name: name,
                           phone: phone,
@@ -446,105 +462,97 @@ class _TrustedCircleScreenState extends State<TrustedCircleScreen> {
                           category: selectedCategory,
                           isPrimary: isPrimary,
                         );
-                      },
-                      child: Container(
-                        height: 54,
-                        width: double.infinity,
-                        decoration: BoxDecoration(
-                          color: const Color(0xFFAB42F5),
-                          borderRadius: BorderRadius.circular(17),
+                      }
+                    },
+                    child: Container(
+                      height: 56,
+                      width: double.infinity,
+                      decoration: BoxDecoration(
+                        borderRadius: BorderRadius.circular(20),
+                        gradient: const LinearGradient(
+                          begin: Alignment.topLeft,
+                          end: Alignment.bottomRight,
+                          colors: [
+                            Color(0xFF007A78),
+                            Color(0xFF00B4A6),
+                          ],
                         ),
-                        child: Center(
-                          child: Text(
-                            "Save Contact",
-                            style: GoogleFonts.poppins(
-                              color: Colors.white,
-                              fontSize: 14,
-                              fontWeight: FontWeight.w800,
-                            ),
+                        boxShadow: [
+                          BoxShadow(
+                            color: _primary.withValues(alpha: 0.24),
+                            blurRadius: 22,
+                            offset: const Offset(0, 12),
+                          ),
+                        ],
+                      ),
+                      child: Center(
+                        child: Text(
+                          isEditing ? "Update Contact" : "Save Contact",
+                          style: GoogleFonts.poppins(
+                            color: Colors.white,
+                            fontSize: 14,
+                            fontWeight: FontWeight.w900,
                           ),
                         ),
                       ),
                     ),
-                  ],
-                ),
+                  ),
+                ],
               ),
             );
           },
         );
       },
     );
-  }
 
-  Widget _inputField({
-    required TextEditingController controller,
-    required String hint,
-    required IconData icon,
-    TextInputType? keyboardType,
-  }) {
-    return Container(
-      height: 52,
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-      ),
-      child: TextField(
-        controller: controller,
-        keyboardType: keyboardType,
-        decoration: InputDecoration(
-          prefixIcon: Icon(
-            icon,
-            color: const Color(0xFFAB42F5),
-            size: 20,
-          ),
-          hintText: hint,
-          hintStyle: GoogleFonts.poppins(
-            color: Colors.black26,
-            fontSize: 12,
-            fontWeight: FontWeight.w500,
-          ),
-          border: InputBorder.none,
-          contentPadding: const EdgeInsets.only(top: 15),
-        ),
-      ),
-    );
+    nameController.dispose();
+    phoneController.dispose();
+    relationController.dispose();
   }
 
   void _openContactOptions(TrustedContact contact) {
     showModalBottomSheet(
       context: context,
-      backgroundColor: Colors.white,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(
-          top: Radius.circular(24),
-        ),
-      ),
+      backgroundColor: Colors.transparent,
+      barrierColor: Colors.black.withValues(alpha: 0.24),
       builder: (context) {
-        return Padding(
-          padding: const EdgeInsets.all(18),
+        return _bottomSheetShell(
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
+              _sheetHandle(),
+              const SizedBox(height: 16),
+              _avatar(
+                text: contact.initial,
+                size: 62,
+                bg: _categoryColors(contact.category).background,
+                textColor: _categoryColors(contact.category).text,
+              ),
+              const SizedBox(height: 12),
               Text(
                 contact.name,
+                textAlign: TextAlign.center,
                 style: GoogleFonts.poppins(
-                  fontSize: 18,
-                  fontWeight: FontWeight.w800,
+                  color: _ink,
+                  fontSize: 20,
+                  fontWeight: FontWeight.w900,
                 ),
               ),
               const SizedBox(height: 4),
               Text(
                 "${contact.relationship} • ${contact.phone}",
+                textAlign: TextAlign.center,
                 style: GoogleFonts.poppins(
-                  color: Colors.black45,
+                  color: _muted,
                   fontSize: 12,
+                  fontWeight: FontWeight.w600,
                 ),
               ),
               const SizedBox(height: 18),
               _optionTile(
                 icon: Icons.call_rounded,
                 title: "Call Contact",
-                color: const Color(0xFF2EAD69),
+                color: const Color(0xFF06A77D),
                 onTap: () {
                   Navigator.pop(context);
                   _callContact(contact.phone);
@@ -553,17 +561,26 @@ class _TrustedCircleScreenState extends State<TrustedCircleScreen> {
               _optionTile(
                 icon: Icons.sms_rounded,
                 title: "Send Emergency SMS",
-                color: const Color(0xFFAB42F5),
+                color: _blue,
                 onTap: () {
                   Navigator.pop(context);
                   _smsContact(contact.phone);
+                },
+              ),
+              _optionTile(
+                icon: Icons.edit_rounded,
+                title: "Edit Contact",
+                color: _primary,
+                onTap: () {
+                  Navigator.pop(context);
+                  _openContactForm(contact: contact);
                 },
               ),
               if (!contact.isPrimary)
                 _optionTile(
                   icon: Icons.star_rounded,
                   title: "Set as Primary",
-                  color: const Color(0xFFFFB800),
+                  color: _gold,
                   onTap: () {
                     Navigator.pop(context);
                     _setPrimaryContact(contact);
@@ -572,7 +589,7 @@ class _TrustedCircleScreenState extends State<TrustedCircleScreen> {
               _optionTile(
                 icon: Icons.delete_rounded,
                 title: "Delete Contact",
-                color: const Color(0xFFFF445C),
+                color: _danger,
                 onTap: () {
                   Navigator.pop(context);
                   _confirmDelete(contact);
@@ -588,26 +605,135 @@ class _TrustedCircleScreenState extends State<TrustedCircleScreen> {
   void _confirmDelete(TrustedContact contact) {
     showDialog(
       context: context,
+      barrierColor: Colors.black.withValues(alpha: 0.24),
       builder: (context) {
-        return AlertDialog(
-          title: const Text("Delete contact?"),
-          content: Text("Are you sure you want to delete ${contact.name}?"),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(context),
-              child: const Text("Cancel"),
-            ),
-            TextButton(
-              onPressed: () {
-                Navigator.pop(context);
-                _deleteContact(contact);
-              },
-              child: const Text(
-                "Delete",
-                style: TextStyle(color: Color(0xFFFF445C)),
+        return Dialog(
+          backgroundColor: Colors.transparent,
+          insetPadding: const EdgeInsets.symmetric(horizontal: 24),
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(30),
+            child: BackdropFilter(
+              filter: ImageFilter.blur(sigmaX: 18, sigmaY: 18),
+              child: Container(
+                padding: const EdgeInsets.all(22),
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(30),
+                  gradient: LinearGradient(
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                    colors: [
+                      Colors.white.withValues(alpha: 0.92),
+                      const Color(0xFFEAF7F6).withValues(alpha: 0.78),
+                    ],
+                  ),
+                  border: Border.all(
+                    color: Colors.white.withValues(alpha: 0.85),
+                    width: 1.3,
+                  ),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.08),
+                      blurRadius: 34,
+                      offset: const Offset(0, 20),
+                    ),
+                  ],
+                ),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    _softIconBadge(
+                      icon: Icons.delete_rounded,
+                      color: _danger,
+                      size: 62,
+                    ),
+                    const SizedBox(height: 16),
+                    Text(
+                      "Delete Contact?",
+                      style: GoogleFonts.poppins(
+                        color: _ink,
+                        fontSize: 20,
+                        fontWeight: FontWeight.w900,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      "Are you sure you want to delete ${contact.name} from your trusted circle?",
+                      textAlign: TextAlign.center,
+                      style: GoogleFonts.poppins(
+                        color: _muted,
+                        fontSize: 13,
+                        height: 1.45,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                    const SizedBox(height: 22),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: GestureDetector(
+                            onTap: () => Navigator.pop(context),
+                            child: Container(
+                              height: 50,
+                              decoration: BoxDecoration(
+                                color: Colors.white.withValues(alpha: 0.68),
+                                borderRadius: BorderRadius.circular(18),
+                                border: Border.all(
+                                  color: Colors.white.withValues(alpha: 0.9),
+                                ),
+                              ),
+                              child: Center(
+                                child: Text(
+                                  "Cancel",
+                                  style: GoogleFonts.poppins(
+                                    color: _muted,
+                                    fontSize: 13,
+                                    fontWeight: FontWeight.w800,
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: GestureDetector(
+                            onTap: () {
+                              Navigator.pop(context);
+                              _deleteContact(contact);
+                            },
+                            child: Container(
+                              height: 50,
+                              decoration: BoxDecoration(
+                                color: _danger,
+                                borderRadius: BorderRadius.circular(18),
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: _danger.withValues(alpha: 0.22),
+                                    blurRadius: 18,
+                                    offset: const Offset(0, 10),
+                                  ),
+                                ],
+                              ),
+                              child: Center(
+                                child: Text(
+                                  "Delete",
+                                  style: GoogleFonts.poppins(
+                                    color: Colors.white,
+                                    fontSize: 13,
+                                    fontWeight: FontWeight.w900,
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
               ),
             ),
-          ],
+          ),
         );
       },
     );
@@ -619,17 +745,46 @@ class _TrustedCircleScreenState extends State<TrustedCircleScreen> {
     required Color color,
     required VoidCallback onTap,
   }) {
-    return ListTile(
-      onTap: onTap,
-      leading: CircleAvatar(
-        backgroundColor: color.withOpacity(0.12),
-        child: Icon(icon, color: color),
-      ),
-      title: Text(
-        title,
-        style: GoogleFonts.poppins(
-          fontWeight: FontWeight.w700,
-          fontSize: 13,
+    return Container(
+      margin: const EdgeInsets.only(bottom: 10),
+      child: Material(
+        color: Colors.white.withValues(alpha: 0.55),
+        borderRadius: BorderRadius.circular(18),
+        child: InkWell(
+          borderRadius: BorderRadius.circular(18),
+          onTap: onTap,
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+            child: Row(
+              children: [
+                Container(
+                  height: 42,
+                  width: 42,
+                  decoration: BoxDecoration(
+                    color: color.withValues(alpha: 0.12),
+                    shape: BoxShape.circle,
+                  ),
+                  child: Icon(icon, color: color, size: 21),
+                ),
+                const SizedBox(width: 13),
+                Expanded(
+                  child: Text(
+                    title,
+                    style: GoogleFonts.poppins(
+                      color: _ink,
+                      fontSize: 13,
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                ),
+                Icon(
+                  Icons.arrow_forward_ios_rounded,
+                  color: _muted.withValues(alpha: 0.45),
+                  size: 14,
+                ),
+              ],
+            ),
+          ),
         ),
       ),
     );
@@ -652,263 +807,454 @@ class _TrustedCircleScreenState extends State<TrustedCircleScreen> {
     final primaryContact = _primaryContact;
 
     return Scaffold(
-      backgroundColor: const Color(0xFFF8F1FF),
-      body: SafeArea(
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
-          child: Column(
-            children: [
-              Row(
-                children: [
-                  _roundButton(
-                    icon: Icons.arrow_back_ios_new_rounded,
-                    onTap: () => Navigator.pop(context),
-                  ),
-                  const Spacer(),
-                  Text(
-                    "Trusted Contacts",
-                    style: GoogleFonts.poppins(
-                      fontSize: 16,
-                      fontWeight: FontWeight.w700,
-                      color: const Color(0xFF1F1A2E),
-                    ),
-                  ),
-                  const Spacer(),
-                  Stack(
-                    children: [
-                      _roundButton(
-                        icon: Icons.refresh_rounded,
-                        onTap: _loadContacts,
-                      ),
-                      if (_contacts.isNotEmpty)
-                        Positioned(
-                          right: 9,
-                          top: 8,
-                          child: Container(
-                            width: 7,
-                            height: 7,
-                            decoration: const BoxDecoration(
-                              color: Color(0xFFFF445C),
-                              shape: BoxShape.circle,
-                            ),
-                          ),
-                        ),
-                    ],
-                  ),
+      extendBodyBehindAppBar: true,
+      backgroundColor: _bgBottom,
+      body: Stack(
+        children: [
+          Container(
+            decoration: const BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors: [
+                  _bgTop,
+                  Color(0xFFEAF1FF),
+                  _bgBottom,
                 ],
               ),
-
-              const SizedBox(height: 20),
-
-              GestureDetector(
-                onTap: _alertAllContacts,
-                child: Container(
-                  padding: const EdgeInsets.all(15),
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(19),
-                  ),
-                  child: Row(
-                    children: [
-                      Container(
-                        height: 42,
-                        width: 42,
-                        decoration: BoxDecoration(
-                          color: const Color(0xFFFFEEF1),
-                          borderRadius: BorderRadius.circular(16),
+            ),
+          ),
+          Positioned(
+            top: -90,
+            right: -70,
+            child: _glowBlob(
+              color: _primaryLight,
+              size: 260,
+              opacity: 0.18,
+            ),
+          ),
+          Positioned(
+            top: 270,
+            left: -110,
+            child: _glowBlob(
+              color: _blue,
+              size: 260,
+              opacity: 0.12,
+            ),
+          ),
+          Positioned(
+            bottom: -80,
+            right: -70,
+            child: _glowBlob(
+              color: const Color(0xFF06D6A0),
+              size: 240,
+              opacity: 0.16,
+            ),
+          ),
+          SafeArea(
+            child: RefreshIndicator(
+              color: _primary,
+              onRefresh: _loadContacts,
+              child: SingleChildScrollView(
+                physics: const AlwaysScrollableScrollPhysics(),
+                padding: const EdgeInsets.fromLTRB(20, 14, 20, 26),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        _circleButton(
+                          icon: Icons.arrow_back_ios_new_rounded,
+                          onTap: () => Navigator.pop(context),
                         ),
-                        child: const Icon(
-                          Icons.shield_rounded,
-                          color: Color(0xFFFF445C),
-                          size: 22,
+                        const Spacer(),
+                        _glassPill(
+                          icon: Icons.verified_user_rounded,
+                          text: "Trusted Circle",
                         ),
+                        const SizedBox(width: 10),
+                        _circleButton(
+                          icon: Icons.refresh_rounded,
+                          onTap: _loadContacts,
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 26),
+                    Text(
+                      "Trusted",
+                      style: GoogleFonts.poppins(
+                        color: _ink,
+                        fontSize: 40,
+                        height: 0.95,
+                        fontWeight: FontWeight.w900,
+                        letterSpacing: -1.1,
                       ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              "Emergency SOS",
-                              style: GoogleFonts.poppins(
-                                fontSize: 13,
-                                fontWeight: FontWeight.w700,
-                                color: const Color(0xFF1F1A2E),
-                              ),
+                    ),
+                    Text(
+                      "circle",
+                      style: GoogleFonts.playfairDisplay(
+                        color: _primary,
+                        fontSize: 52,
+                        height: 0.92,
+                        fontWeight: FontWeight.w900,
+                        fontStyle: FontStyle.italic,
+                      ),
+                    ),
+                    const SizedBox(height: 14),
+                    Text(
+                      "Keep emergency contacts ready for calls, SMS alerts, and panic support.",
+                      style: GoogleFonts.poppins(
+                        color: _muted,
+                        fontSize: 13,
+                        height: 1.45,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                    const SizedBox(height: 22),
+                    _heroCard(),
+                    const SizedBox(height: 16),
+                    _summaryStrip(),
+                    const SizedBox(height: 16),
+                    _searchBox(),
+                    const SizedBox(height: 14),
+                    SingleChildScrollView(
+                      scrollDirection: Axis.horizontal,
+                      child: Row(
+                        children: [
+                          _filterChip("All"),
+                          _filterChip("Family"),
+                          _filterChip("Friends"),
+                          _filterChip("Work"),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 18),
+                    _sectionLabel("YOUR SAFETY CIRCLE"),
+                    const SizedBox(height: 12),
+                    if (_isLoading)
+                      _loadingState()
+                    else if (_contacts.isEmpty)
+                      _emptyState()
+                    else ...[
+                      if (primaryContact != null)
+                        _primaryContactCard(primaryContact),
+                      const SizedBox(height: 14),
+                      if (filteredContacts.isEmpty)
+                        _noSearchResult()
+                      else
+                        ...filteredContacts.map((contact) {
+                          if (primaryContact != null &&
+                              contact.id == primaryContact.id) {
+                            return const SizedBox.shrink();
+                          }
+
+                          return _contactTile(contact);
+                        }),
+                    ],
+                    const SizedBox(height: 18),
+                    GestureDetector(
+                      onTap: () => _openContactForm(),
+                      child: Container(
+                        height: 58,
+                        width: double.infinity,
+                        decoration: BoxDecoration(
+                          borderRadius: BorderRadius.circular(21),
+                          gradient: const LinearGradient(
+                            begin: Alignment.topLeft,
+                            end: Alignment.bottomRight,
+                            colors: [
+                              _primary,
+                              _primaryLight,
+                            ],
+                          ),
+                          boxShadow: [
+                            BoxShadow(
+                              color: _primary.withValues(alpha: 0.22),
+                              blurRadius: 24,
+                              offset: const Offset(0, 12),
                             ),
+                          ],
+                        ),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            const Icon(
+                              Icons.person_add_alt_1_rounded,
+                              color: Colors.white,
+                              size: 21,
+                            ),
+                            const SizedBox(width: 9),
                             Text(
-                              "Alert all trusted contacts\ninstantly",
+                              "Add New Contact",
                               style: GoogleFonts.poppins(
-                                fontSize: 9.5,
-                                height: 1.2,
-                                color: Colors.black38,
-                                fontWeight: FontWeight.w500,
+                                color: Colors.white,
+                                fontSize: 14,
+                                fontWeight: FontWeight.w900,
                               ),
                             ),
                           ],
                         ),
                       ),
-                      Container(
-                        height: 38,
-                        width: 38,
-                        decoration: const BoxDecoration(
-                          color: Color(0xFFFF445C),
-                          shape: BoxShape.circle,
-                        ),
-                        child: const Icon(
-                          Icons.flash_on_rounded,
-                          color: Colors.white,
-                          size: 22,
-                        ),
-                      ),
-                    ],
-                  ),
+                    ),
+                  ],
                 ),
               ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
 
-              const SizedBox(height: 14),
-
-              Container(
-                height: 48,
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(16),
-                ),
-                child: TextField(
-                  controller: _searchController,
-                  decoration: InputDecoration(
-                    prefixIcon: const Icon(
-                      Icons.search_rounded,
-                      color: Colors.black26,
-                      size: 20,
-                    ),
-                    hintText: "Search contacts...",
-                    hintStyle: GoogleFonts.poppins(
-                      color: Colors.black26,
-                      fontSize: 12,
-                      fontWeight: FontWeight.w500,
-                    ),
-                    border: InputBorder.none,
-                    contentPadding: const EdgeInsets.only(top: 14),
+  Widget _heroCard() {
+    return _glassCard(
+      padding: const EdgeInsets.all(17),
+      radius: 28,
+      child: Row(
+        children: [
+          _softIconBadge(
+            icon: Icons.shield_moon_rounded,
+            color: _primary,
+            size: 58,
+          ),
+          const SizedBox(width: 14),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  "Emergency SMS ready",
+                  style: GoogleFonts.poppins(
+                    color: _ink,
+                    fontSize: 16,
+                    fontWeight: FontWeight.w900,
                   ),
                 ),
-              ),
-
-              const SizedBox(height: 14),
-
-              Row(
-                children: [
-                  _filterChip("All"),
-                  _filterChip("Family"),
-                  _filterChip("Friends"),
-                  _filterChip("Work"),
+                const SizedBox(height: 4),
+                Text(
+                  "Alert everyone in your trusted circle from one place.",
+                  style: GoogleFonts.poppins(
+                    color: _muted,
+                    fontSize: 12,
+                    height: 1.35,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          GestureDetector(
+            onTap: _alertAllContacts,
+            child: Container(
+              height: 46,
+              width: 46,
+              decoration: BoxDecoration(
+                color: _danger,
+                shape: BoxShape.circle,
+                boxShadow: [
+                  BoxShadow(
+                    color: _danger.withValues(alpha: 0.24),
+                    blurRadius: 18,
+                    offset: const Offset(0, 10),
+                  ),
                 ],
               ),
+              child: const Icon(
+                Icons.flash_on_rounded,
+                color: Colors.white,
+                size: 24,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
 
-              const SizedBox(height: 15),
+  Widget _summaryStrip() {
+    final primaryContact = _primaryContact;
+    final primaryName = primaryContact == null ? "Not set" : primaryContact.name;
 
-              if (_isLoading)
-                const Padding(
-                  padding: EdgeInsets.only(top: 80),
-                  child: CircularProgressIndicator(
-                    color: Color(0xFFAB42F5),
-                  ),
-                )
-              else if (_contacts.isEmpty)
-                _emptyState()
-              else ...[
-                if (primaryContact != null) _primaryContactCard(primaryContact),
+    return Row(
+      children: [
+        Expanded(
+          child: _miniStatCard(
+            icon: Icons.groups_rounded,
+            value: _contacts.length.toString(),
+            label: "Contacts",
+            color: _primary,
+          ),
+        ),
+        const SizedBox(width: 12),
+        Expanded(
+          child: _miniStatCard(
+            icon: Icons.star_rounded,
+            value: primaryName,
+            label: "Primary",
+            color: _gold,
+            smallValue: true,
+          ),
+        ),
+      ],
+    );
+  }
 
-                const SizedBox(height: 13),
-
-                if (filteredContacts.isEmpty)
-                  _noSearchResult()
-                else
-                  ...filteredContacts.map(
-                    (contact) {
-                      if (primaryContact != null &&
-                          contact.id == primaryContact.id) {
-                        return const SizedBox.shrink();
-                      }
-
-                      return _contactTile(contact);
-                    },
-                  ),
-
-                const SizedBox(height: 16),
-              ],
-
-              GestureDetector(
-                onTap: _openAddContactSheet,
-                child: Container(
-                  height: 54,
-                  width: double.infinity,
-                  decoration: BoxDecoration(
-                    color: const Color(0xFFAB42F5),
-                    borderRadius: BorderRadius.circular(17),
-                  ),
-                  child: Center(
-                    child: Text(
-                      "+ Add New Contact",
-                      style: GoogleFonts.poppins(
-                        color: Colors.white,
-                        fontSize: 13,
-                        fontWeight: FontWeight.w800,
-                      ),
-                    ),
+  Widget _miniStatCard({
+    required IconData icon,
+    required String value,
+    required String label,
+    required Color color,
+    bool smallValue = false,
+  }) {
+    return _glassCard(
+      padding: const EdgeInsets.all(14),
+      radius: 22,
+      child: Row(
+        children: [
+          Container(
+            height: 42,
+            width: 42,
+            decoration: BoxDecoration(
+              color: color.withValues(alpha: 0.13),
+              borderRadius: BorderRadius.circular(15),
+            ),
+            child: Icon(icon, color: color, size: 21),
+          ),
+          const SizedBox(width: 11),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  value,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: GoogleFonts.poppins(
+                    color: _ink,
+                    fontSize: smallValue ? 13 : 18,
+                    fontWeight: FontWeight.w900,
                   ),
                 ),
-              ),
+                Text(
+                  label,
+                  style: GoogleFonts.poppins(
+                    color: _muted,
+                    fontSize: 10.5,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
 
-              const SizedBox(height: 20),
-            ],
+  Widget _searchBox() {
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(22),
+      child: BackdropFilter(
+        filter: ImageFilter.blur(sigmaX: 18, sigmaY: 18),
+        child: Container(
+          height: 54,
+          decoration: BoxDecoration(
+            color: Colors.white.withValues(alpha: 0.52),
+            borderRadius: BorderRadius.circular(22),
+            border: Border.all(
+              color: Colors.white.withValues(alpha: 0.78),
+              width: 1.2,
+            ),
+          ),
+          child: TextField(
+            controller: _searchController,
+            style: GoogleFonts.poppins(
+              color: _ink,
+              fontSize: 13,
+              fontWeight: FontWeight.w600,
+            ),
+            decoration: InputDecoration(
+              prefixIcon: Icon(
+                Icons.search_rounded,
+                color: _muted.withValues(alpha: 0.72),
+                size: 22,
+              ),
+              suffixIcon: _searchController.text.trim().isEmpty
+                  ? null
+                  : GestureDetector(
+                      onTap: _searchController.clear,
+                      child: Icon(
+                        Icons.close_rounded,
+                        color: _muted.withValues(alpha: 0.7),
+                        size: 20,
+                      ),
+                    ),
+              hintText: "Search name, phone, relation...",
+              hintStyle: GoogleFonts.poppins(
+                color: _muted.withValues(alpha: 0.62),
+                fontSize: 12,
+                fontWeight: FontWeight.w500,
+              ),
+              border: InputBorder.none,
+              contentPadding: const EdgeInsets.only(top: 15),
+            ),
           ),
         ),
       ),
     );
   }
 
-  Widget _emptyState() {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(24),
-      margin: const EdgeInsets.only(top: 30, bottom: 20),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(22),
-      ),
+  Widget _loadingState() {
+    return _glassCard(
       child: Column(
         children: [
-          Container(
-            height: 68,
-            width: 68,
-            decoration: const BoxDecoration(
-              color: Color(0xFFF1E4FF),
-              shape: BoxShape.circle,
-            ),
-            child: const Icon(
-              Icons.group_add_rounded,
-              color: Color(0xFFAB42F5),
-              size: 32,
+          const SizedBox(height: 8),
+          const CircularProgressIndicator(
+            color: _primary,
+            strokeWidth: 2.6,
+          ),
+          const SizedBox(height: 16),
+          Text(
+            "Loading trusted contacts...",
+            style: GoogleFonts.poppins(
+              color: _muted,
+              fontSize: 13,
+              fontWeight: FontWeight.w600,
             ),
           ),
-          const SizedBox(height: 14),
+          const SizedBox(height: 8),
+        ],
+      ),
+    );
+  }
+
+  Widget _emptyState() {
+    return _glassCard(
+      child: Column(
+        children: [
+          _softIconBadge(
+            icon: Icons.group_add_rounded,
+            color: _primary,
+            size: 72,
+          ),
+          const SizedBox(height: 18),
           Text(
             "No trusted contacts yet",
             style: GoogleFonts.poppins(
-              fontSize: 15,
-              fontWeight: FontWeight.w800,
-              color: const Color(0xFF1F1A2E),
+              color: _ink,
+              fontSize: 18,
+              fontWeight: FontWeight.w900,
             ),
           ),
-          const SizedBox(height: 6),
+          const SizedBox(height: 8),
           Text(
-            "Add family, friends, or work contacts for emergency help.",
+            "Add family, friends, or work contacts who can receive your emergency alerts.",
             textAlign: TextAlign.center,
             style: GoogleFonts.poppins(
-              color: Colors.black38,
-              fontSize: 11,
-              height: 1.4,
+              color: _muted,
+              fontSize: 12.5,
+              height: 1.45,
+              fontWeight: FontWeight.w500,
             ),
           ),
         ],
@@ -917,112 +1263,141 @@ class _TrustedCircleScreenState extends State<TrustedCircleScreen> {
   }
 
   Widget _noSearchResult() {
-    return Container(
-      width: double.infinity,
+    return _glassCard(
       padding: const EdgeInsets.all(18),
-      margin: const EdgeInsets.only(bottom: 14),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(18),
-      ),
-      child: Text(
-        "No matching contacts found",
-        textAlign: TextAlign.center,
-        style: GoogleFonts.poppins(
-          color: Colors.black38,
-          fontSize: 12,
-          fontWeight: FontWeight.w600,
+      radius: 22,
+      child: Center(
+        child: Text(
+          "No matching contacts found",
+          style: GoogleFonts.poppins(
+            color: _muted,
+            fontSize: 12.5,
+            fontWeight: FontWeight.w700,
+          ),
         ),
       ),
     );
   }
 
   Widget _primaryContactCard(TrustedContact contact) {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        gradient: const LinearGradient(
-          colors: [
-            Color(0xFF8D3BFF),
-            Color(0xFFC849F8),
-          ],
-          begin: Alignment.centerLeft,
-          end: Alignment.centerRight,
-        ),
-        borderRadius: BorderRadius.circular(24),
-      ),
-      child: Row(
-        children: [
-          _avatar(
-            text: contact.initial,
-            bg: const Color(0xFFE8D8FF),
-            textColor: const Color(0xFF8D3BFF),
-            size: 46,
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(30),
+      child: BackdropFilter(
+        filter: ImageFilter.blur(sigmaX: 18, sigmaY: 18),
+        child: Container(
+          padding: const EdgeInsets.all(18),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(30),
+            gradient: const LinearGradient(
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+              colors: [
+                Color(0xFF005F73),
+                Color(0xFF0A9396),
+                Color(0xFF94D2BD),
+              ],
+            ),
+            boxShadow: [
+              BoxShadow(
+                color: _primary.withValues(alpha: 0.22),
+                blurRadius: 30,
+                offset: const Offset(0, 16),
+              ),
+            ],
           ),
-          const SizedBox(width: 13),
-          Expanded(
-            child: GestureDetector(
-              onTap: () => _openContactOptions(contact),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
+          child: Row(
+            children: [
+              _avatar(
+                text: contact.initial,
+                bg: Colors.white.withValues(alpha: 0.92),
+                textColor: _primary,
+                size: 58,
+              ),
+              const SizedBox(width: 14),
+              Expanded(
+                child: GestureDetector(
+                  onTap: () => _openContactOptions(contact),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Flexible(
-                        child: Text(
-                          contact.name,
-                          overflow: TextOverflow.ellipsis,
-                          style: GoogleFonts.poppins(
-                            color: Colors.white,
-                            fontSize: 15,
-                            fontWeight: FontWeight.w800,
+                      Row(
+                        children: [
+                          Flexible(
+                            child: Text(
+                              contact.name,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: GoogleFonts.poppins(
+                                color: Colors.white,
+                                fontSize: 17,
+                                fontWeight: FontWeight.w900,
+                              ),
+                            ),
                           ),
+                          const SizedBox(width: 7),
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 8,
+                              vertical: 3,
+                            ),
+                            decoration: BoxDecoration(
+                              color: Colors.white.withValues(alpha: 0.22),
+                              borderRadius: BorderRadius.circular(99),
+                              border: Border.all(
+                                color: Colors.white.withValues(alpha: 0.34),
+                              ),
+                            ),
+                            child: Text(
+                              "PRIMARY",
+                              style: GoogleFonts.poppins(
+                                color: Colors.white,
+                                fontSize: 8.5,
+                                fontWeight: FontWeight.w900,
+                                letterSpacing: 0.5,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 3),
+                      Text(
+                        "${contact.relationship} • ${contact.category}",
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: GoogleFonts.poppins(
+                          color: Colors.white.withValues(alpha: 0.78),
+                          fontSize: 11,
+                          fontWeight: FontWeight.w600,
                         ),
                       ),
-                      const SizedBox(width: 6),
-                      Container(
-                        height: 6,
-                        width: 6,
-                        decoration: const BoxDecoration(
-                          color: Color(0xFF68F59D),
-                          shape: BoxShape.circle,
+                      const SizedBox(height: 8),
+                      Text(
+                        contact.phone,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: GoogleFonts.poppins(
+                          color: Colors.white,
+                          fontSize: 13,
+                          fontWeight: FontWeight.w800,
                         ),
                       ),
                     ],
                   ),
-                  Text(
-                    "${contact.category} • Primary",
-                    style: GoogleFonts.poppins(
-                      color: Colors.white70,
-                      fontSize: 9.5,
-                      fontWeight: FontWeight.w500,
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                  Text(
-                    contact.phone,
-                    style: GoogleFonts.poppins(
-                      color: Colors.white,
-                      fontSize: 12,
-                      fontWeight: FontWeight.w800,
-                    ),
-                  ),
-                ],
+                ),
               ),
-            ),
+              const SizedBox(width: 8),
+              _whiteActionIcon(
+                icon: Icons.call_rounded,
+                onTap: () => _callContact(contact.phone),
+              ),
+              const SizedBox(width: 8),
+              _whiteActionIcon(
+                icon: Icons.sms_rounded,
+                onTap: () => _smsContact(contact.phone),
+              ),
+            ],
           ),
-          _smallPurpleIcon(Icons.star_rounded),
-          const SizedBox(width: 8),
-          GestureDetector(
-            onTap: () => _callContact(contact.phone),
-            child: _whiteActionIcon(Icons.call_rounded),
-          ),
-          const SizedBox(width: 8),
-          GestureDetector(
-            onTap: () => _smsContact(contact.phone),
-            child: _whiteActionIcon(Icons.sms_rounded),
-          ),
-        ],
+        ),
       ),
     );
   }
@@ -1030,97 +1405,82 @@ class _TrustedCircleScreenState extends State<TrustedCircleScreen> {
   Widget _contactTile(TrustedContact contact) {
     final colors = _categoryColors(contact.category);
 
-    return GestureDetector(
-      onTap: () => _openContactOptions(contact),
-      child: Container(
-        margin: const EdgeInsets.only(bottom: 11),
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 13),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(21),
-        ),
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      child: _glassCard(
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+        radius: 24,
         child: Row(
           children: [
             _avatar(
               text: contact.initial,
               bg: colors.background,
               textColor: colors.text,
-              size: 43,
+              size: 50,
             ),
             const SizedBox(width: 13),
             Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    contact.name,
-                    style: GoogleFonts.poppins(
-                      color: const Color(0xFF1F1A2E),
-                      fontSize: 13,
-                      fontWeight: FontWeight.w800,
+              child: GestureDetector(
+                onTap: () => _openContactOptions(contact),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      contact.name,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: GoogleFonts.poppins(
+                        color: _ink,
+                        fontSize: 14,
+                        fontWeight: FontWeight.w900,
+                      ),
                     ),
-                  ),
-                  Text(
-                    "${contact.relationship} • ${contact.category}",
-                    style: GoogleFonts.poppins(
-                      color: Colors.black38,
-                      fontSize: 11,
-                      fontWeight: FontWeight.w500,
+                    const SizedBox(height: 3),
+                    Text(
+                      "${contact.relationship} • ${contact.category}",
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: GoogleFonts.poppins(
+                        color: _muted,
+                        fontSize: 11.5,
+                        fontWeight: FontWeight.w600,
+                      ),
                     ),
-                  ),
-                ],
-              ),
-            ),
-            GestureDetector(
-              onTap: () => _callContact(contact.phone),
-              child: Container(
-                height: 31,
-                width: 31,
-                decoration: const BoxDecoration(
-                  color: Color(0xFFEAF7EF),
-                  shape: BoxShape.circle,
-                ),
-                child: const Icon(
-                  Icons.call_rounded,
-                  color: Color(0xFF4E9F6E),
-                  size: 16,
+                    const SizedBox(height: 3),
+                    Text(
+                      contact.phone,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: GoogleFonts.poppins(
+                        color: _muted.withValues(alpha: 0.78),
+                        fontSize: 11,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ],
                 ),
               ),
             ),
             const SizedBox(width: 8),
-            Container(
-              height: 31,
-              width: 31,
-              decoration: const BoxDecoration(
-                color: Color(0xFFF3F0F7),
-                shape: BoxShape.circle,
-              ),
-              child: const Icon(
-                Icons.more_horiz_rounded,
-                color: Colors.black26,
-                size: 17,
-              ),
+            _smallActionButton(
+              icon: Icons.call_rounded,
+              iconColor: const Color(0xFF06A77D),
+              onTap: () => _callContact(contact.phone),
+            ),
+            const SizedBox(width: 8),
+            _smallActionButton(
+              icon: Icons.edit_rounded,
+              iconColor: _primary,
+              onTap: () => _openContactForm(contact: contact),
+            ),
+            const SizedBox(width: 8),
+            _smallActionButton(
+              icon: Icons.more_horiz_rounded,
+              iconColor: _muted,
+              onTap: () => _openContactOptions(contact),
             ),
           ],
         ),
-      ),
-    );
-  }
-
-  Widget _roundButton({
-    required IconData icon,
-    required VoidCallback onTap,
-  }) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        height: 38,
-        width: 38,
-        decoration: const BoxDecoration(
-          color: Colors.white,
-          shape: BoxShape.circle,
-        ),
-        child: Icon(icon, color: Colors.black54, size: 18),
       ),
     );
   }
@@ -1134,21 +1494,409 @@ class _TrustedCircleScreenState extends State<TrustedCircleScreen> {
           _selectedCategory = text;
         });
       },
-      child: Container(
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 180),
         margin: const EdgeInsets.only(right: 8),
-        padding: const EdgeInsets.symmetric(horizontal: 17, vertical: 9),
+        padding: const EdgeInsets.symmetric(horizontal: 17, vertical: 10),
         decoration: BoxDecoration(
-          color: selected ? Colors.black : Colors.white,
-          borderRadius: BorderRadius.circular(20),
+          color: selected
+              ? _ink.withValues(alpha: 0.94)
+              : Colors.white.withValues(alpha: 0.46),
+          borderRadius: BorderRadius.circular(100),
+          border: Border.all(
+            color: selected
+                ? _ink.withValues(alpha: 0.1)
+                : Colors.white.withValues(alpha: 0.76),
+          ),
+          boxShadow: selected
+              ? [
+                  BoxShadow(
+                    color: _ink.withValues(alpha: 0.12),
+                    blurRadius: 18,
+                    offset: const Offset(0, 9),
+                  ),
+                ]
+              : null,
         ),
         child: Text(
           text,
           style: GoogleFonts.poppins(
-            color: selected ? Colors.white : Colors.black54,
+            color: selected ? Colors.white : _muted,
             fontSize: 11,
-            fontWeight: FontWeight.w700,
+            fontWeight: FontWeight.w800,
           ),
         ),
+      ),
+    );
+  }
+
+  Widget _inputField({
+    required TextEditingController controller,
+    required String hint,
+    required IconData icon,
+    TextInputType? keyboardType,
+  }) {
+    return TextField(
+      controller: controller,
+      keyboardType: keyboardType,
+      style: GoogleFonts.poppins(
+        color: _ink,
+        fontSize: 13.5,
+        fontWeight: FontWeight.w700,
+      ),
+      decoration: InputDecoration(
+        prefixIcon: Icon(
+          icon,
+          color: _primary,
+          size: 20,
+        ),
+        hintText: hint,
+        hintStyle: GoogleFonts.poppins(
+          color: _muted.withValues(alpha: 0.55),
+          fontSize: 12,
+          fontWeight: FontWeight.w500,
+        ),
+        filled: true,
+        fillColor: Colors.white.withValues(alpha: 0.66),
+        contentPadding:
+            const EdgeInsets.symmetric(horizontal: 14, vertical: 16),
+        enabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(18),
+          borderSide: BorderSide(
+            color: Colors.white.withValues(alpha: 0.84),
+          ),
+        ),
+        focusedBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(18),
+          borderSide: const BorderSide(
+            color: _primaryLight,
+            width: 1.4,
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _categoryMenu({
+    required String selectedCategory,
+    required ValueChanged<String> onChanged,
+  }) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 14),
+      decoration: BoxDecoration(
+        color: Colors.white.withValues(alpha: 0.66),
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(
+          color: Colors.white.withValues(alpha: 0.84),
+        ),
+      ),
+      child: DropdownButtonHideUnderline(
+        child: DropdownButton<String>(
+          value: selectedCategory,
+          isExpanded: true,
+          icon: const Icon(Icons.keyboard_arrow_down_rounded, color: _muted),
+          items: [
+            _dropdownItem("Family"),
+            _dropdownItem("Friends"),
+            _dropdownItem("Work"),
+          ],
+          onChanged: (value) {
+            if (value == null) return;
+            onChanged(value);
+          },
+        ),
+      ),
+    );
+  }
+
+  DropdownMenuItem<String> _dropdownItem(String value) {
+    return DropdownMenuItem(
+      value: value,
+      child: Text(
+        value,
+        style: GoogleFonts.poppins(
+          color: _ink,
+          fontSize: 13,
+          fontWeight: FontWeight.w700,
+        ),
+      ),
+    );
+  }
+
+  Widget _primaryToggle({
+    required bool value,
+    required ValueChanged<bool> onChanged,
+  }) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+      decoration: BoxDecoration(
+        color: Colors.white.withValues(alpha: 0.66),
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(
+          color: Colors.white.withValues(alpha: 0.84),
+        ),
+      ),
+      child: Row(
+        children: [
+          const Icon(Icons.star_rounded, color: _gold, size: 23),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Text(
+              "Set as primary contact",
+              style: GoogleFonts.poppins(
+                color: _ink,
+                fontSize: 13,
+                fontWeight: FontWeight.w800,
+              ),
+            ),
+          ),
+          Switch(
+            value: value,
+            activeThumbColor: Colors.white,
+            activeTrackColor: _primary,
+            inactiveThumbColor: Colors.white,
+            inactiveTrackColor: _muted.withValues(alpha: 0.22),
+            onChanged: onChanged,
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _bottomSheetShell({required Widget child}) {
+    return ClipRRect(
+      borderRadius: const BorderRadius.vertical(top: Radius.circular(32)),
+      child: BackdropFilter(
+        filter: ImageFilter.blur(sigmaX: 22, sigmaY: 22),
+        child: Container(
+          padding: EdgeInsets.only(
+            left: 20,
+            right: 20,
+            top: 18,
+            bottom: MediaQuery.of(context).viewInsets.bottom + 22,
+          ),
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+              colors: [
+                Colors.white.withValues(alpha: 0.92),
+                const Color(0xFFEAF7F6).withValues(alpha: 0.84),
+                const Color(0xFFDDEBFF).withValues(alpha: 0.72),
+              ],
+            ),
+            border: Border(
+              top: BorderSide(
+                color: Colors.white.withValues(alpha: 0.9),
+                width: 1.4,
+              ),
+            ),
+          ),
+          child: SingleChildScrollView(child: child),
+        ),
+      ),
+    );
+  }
+
+  Widget _sheetHandle() {
+    return Center(
+      child: Container(
+        height: 5,
+        width: 46,
+        decoration: BoxDecoration(
+          color: _muted.withValues(alpha: 0.26),
+          borderRadius: BorderRadius.circular(99),
+        ),
+      ),
+    );
+  }
+
+  Widget _glassCard({
+    required Widget child,
+    EdgeInsetsGeometry padding = const EdgeInsets.all(18),
+    double radius = 28,
+  }) {
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(radius),
+      child: BackdropFilter(
+        filter: ImageFilter.blur(sigmaX: 22, sigmaY: 22),
+        child: Container(
+          width: double.infinity,
+          padding: padding,
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(radius),
+            gradient: LinearGradient(
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+              colors: [
+                Colors.white.withValues(alpha: 0.72),
+                Colors.white.withValues(alpha: 0.36),
+              ],
+            ),
+            border: Border.all(
+              color: Colors.white.withValues(alpha: 0.78),
+              width: 1.25,
+            ),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.055),
+                blurRadius: 28,
+                offset: const Offset(0, 16),
+              ),
+              BoxShadow(
+                color: Colors.white.withValues(alpha: 0.52),
+                blurRadius: 10,
+                offset: const Offset(-4, -4),
+              ),
+            ],
+          ),
+          child: child,
+        ),
+      ),
+    );
+  }
+
+  Widget _glassPill({
+    required IconData icon,
+    required String text,
+  }) {
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(99),
+      child: BackdropFilter(
+        filter: ImageFilter.blur(sigmaX: 16, sigmaY: 16),
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 13, vertical: 9),
+          decoration: BoxDecoration(
+            color: Colors.white.withValues(alpha: 0.48),
+            borderRadius: BorderRadius.circular(99),
+            border: Border.all(
+              color: Colors.white.withValues(alpha: 0.76),
+            ),
+          ),
+          child: Row(
+            children: [
+              Icon(icon, color: _primary, size: 16),
+              const SizedBox(width: 7),
+              Text(
+                text,
+                style: GoogleFonts.poppins(
+                  color: _ink,
+                  fontSize: 11,
+                  fontWeight: FontWeight.w900,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _circleButton({
+    required IconData icon,
+    required VoidCallback onTap,
+  }) {
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(99),
+      child: BackdropFilter(
+        filter: ImageFilter.blur(sigmaX: 16, sigmaY: 16),
+        child: GestureDetector(
+          onTap: onTap,
+          child: Container(
+            height: 48,
+            width: 48,
+            decoration: BoxDecoration(
+              color: Colors.white.withValues(alpha: 0.48),
+              shape: BoxShape.circle,
+              border: Border.all(
+                color: Colors.white.withValues(alpha: 0.78),
+                width: 1.2,
+              ),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.045),
+                  blurRadius: 18,
+                  offset: const Offset(0, 9),
+                ),
+              ],
+            ),
+            child: Icon(icon, color: _ink, size: 21),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _softIconBadge({
+    required IconData icon,
+    required Color color,
+    double size = 52,
+  }) {
+    return Container(
+      height: size,
+      width: size,
+      decoration: BoxDecoration(
+        shape: BoxShape.circle,
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [
+            color.withValues(alpha: 0.16),
+            Colors.white.withValues(alpha: 0.70),
+          ],
+        ),
+        border: Border.all(
+          color: Colors.white.withValues(alpha: 0.82),
+          width: 1.2,
+        ),
+      ),
+      child: Icon(icon, color: color, size: size * 0.46),
+    );
+  }
+
+  Widget _smallActionButton({
+    required IconData icon,
+    required Color iconColor,
+    required VoidCallback onTap,
+  }) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        height: 38,
+        width: 38,
+        decoration: BoxDecoration(
+          shape: BoxShape.circle,
+          color: Colors.white.withValues(alpha: 0.56),
+          border: Border.all(
+            color: Colors.white.withValues(alpha: 0.85),
+          ),
+        ),
+        child: Icon(icon, color: iconColor, size: 18),
+      ),
+    );
+  }
+
+  Widget _whiteActionIcon({
+    required IconData icon,
+    required VoidCallback onTap,
+  }) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        height: 38,
+        width: 38,
+        decoration: BoxDecoration(
+          color: Colors.white.withValues(alpha: 0.96),
+          shape: BoxShape.circle,
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.07),
+              blurRadius: 14,
+              offset: const Offset(0, 8),
+            ),
+          ],
+        ),
+        child: Icon(icon, color: _primary, size: 18),
       ),
     );
   }
@@ -1157,46 +1905,63 @@ class _TrustedCircleScreenState extends State<TrustedCircleScreen> {
     required String text,
     required Color bg,
     required Color textColor,
-    double size = 44,
+    double size = 48,
   }) {
     return Container(
       height: size,
       width: size,
-      decoration: BoxDecoration(color: bg, shape: BoxShape.circle),
+      decoration: BoxDecoration(
+        color: bg,
+        shape: BoxShape.circle,
+        border: Border.all(
+          color: Colors.white.withValues(alpha: 0.78),
+          width: 1.2,
+        ),
+      ),
       child: Center(
         child: Text(
           text,
           style: GoogleFonts.poppins(
             color: textColor,
-            fontSize: 15,
-            fontWeight: FontWeight.w800,
+            fontSize: size * 0.34,
+            fontWeight: FontWeight.w900,
           ),
         ),
       ),
     );
   }
 
-  Widget _smallPurpleIcon(IconData icon) {
-    return Container(
-      height: 28,
-      width: 28,
-      decoration: BoxDecoration(
-        color: Colors.white.withOpacity(0.16),
-        shape: BoxShape.circle,
+  Widget _sectionLabel(String text) {
+    return Text(
+      text,
+      style: GoogleFonts.poppins(
+        color: _muted.withValues(alpha: 0.92),
+        fontSize: 11,
+        fontWeight: FontWeight.w900,
+        letterSpacing: 0.9,
       ),
-      child: Icon(icon, color: Colors.white70, size: 16),
     );
   }
 
-  Widget _whiteActionIcon(IconData icon) {
+  Widget _glowBlob({
+    required Color color,
+    required double size,
+    required double opacity,
+  }) {
     return Container(
-      height: 32,
-      width: 32,
-      decoration: const BoxDecoration(
-        color: Colors.white,
+      height: size,
+      width: size,
+      decoration: BoxDecoration(
         shape: BoxShape.circle,
+        color: color.withValues(alpha: opacity),
+        boxShadow: [
+          BoxShadow(
+            color: color.withValues(alpha: opacity),
+            blurRadius: 95,
+            spreadRadius: 26,
+          ),
+        ],
       ),
-      child: Icon(icon, color: Color(0xFF9D3EFF), size: 17),
     );
   }
 
@@ -1205,18 +1970,18 @@ class _TrustedCircleScreenState extends State<TrustedCircleScreen> {
       case "friends":
         return const _CategoryColor(
           background: Color(0xFFEAF1FF),
-          text: Color(0xFF5D7FEA),
+          text: Color(0xFF3A86FF),
         );
       case "work":
         return const _CategoryColor(
-          background: Color(0xFFFFF0DB),
-          text: Color(0xFFFF9F43),
+          background: Color(0xFFFFF3D8),
+          text: Color(0xFFFF9F1C),
         );
       case "family":
       default:
         return const _CategoryColor(
-          background: Color(0xFFEAF7EF),
-          text: Color(0xFF4E9F6E),
+          background: Color(0xFFE4F8F3),
+          text: Color(0xFF007A78),
         );
     }
   }

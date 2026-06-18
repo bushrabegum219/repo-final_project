@@ -1,7 +1,9 @@
+import 'dart:ui';
+
+import 'package:amaan_app/constants/app_theme_controller.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
-import 'package:amaan_app/constants/app_theme_controller.dart';
 
 class SettingsScreen extends StatefulWidget {
   const SettingsScreen({super.key});
@@ -12,6 +14,15 @@ class SettingsScreen extends StatefulWidget {
 
 class _SettingsScreenState extends State<SettingsScreen> {
   final SupabaseClient _supabase = Supabase.instance.client;
+
+  static const Color _blueDeep = Color(0xFF102A43);
+  static const Color _blueMain = Color(0xFF2563EB);
+  static const Color _blueSoft = Color(0xFF38BDF8);
+  static const Color _cyan = Color(0xFF06B6D4);
+  static const Color _violet = Color(0xFF6366F1);
+  static const Color _danger = Color(0xFFEF4444);
+  static const Color _success = Color(0xFF10B981);
+  static const Color _warning = Color(0xFFF59E0B);
 
   bool _isLoading = true;
   bool _isSaving = false;
@@ -31,6 +42,14 @@ class _SettingsScreenState extends State<SettingsScreen> {
   bool autoShareLocationOn = true;
   int sosCountdownSeconds = 5;
   int fakeCallDelaySeconds = 10;
+
+  Color get _textMain => darkModeOn ? Colors.white : _blueDeep;
+  Color get _textMuted =>
+      darkModeOn ? Colors.white.withValues(alpha: 0.68) : const Color(0xFF61748A);
+  Color get _glassLight =>
+      darkModeOn ? Colors.white.withValues(alpha: 0.08) : Colors.white.withValues(alpha: 0.54);
+  Color get _glassStrong =>
+      darkModeOn ? Colors.white.withValues(alpha: 0.11) : Colors.white.withValues(alpha: 0.74);
 
   @override
   void initState() {
@@ -180,8 +199,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
     final updatedDarkModeOn = newDarkModeOn ?? darkModeOn;
     final updatedSoundVibrationOn = newSoundVibrationOn ?? soundVibrationOn;
 
-    final updatedDefaultSosMessage =
-        newDefaultSosMessage ?? defaultSosMessage;
+    final updatedDefaultSosMessage = newDefaultSosMessage ?? defaultSosMessage;
     final updatedAutoShareLocationOn =
         newAutoShareLocationOn ?? autoShareLocationOn;
     final updatedSosCountdownSeconds =
@@ -243,14 +261,15 @@ class _SettingsScreenState extends State<SettingsScreen> {
     }
   }
 
-  void _openEditProfileSheet() {
+  Future<void> _openEditProfileSheet() async {
     final nameController = TextEditingController(text: fullName);
     final phoneController = TextEditingController(text: phoneNumber);
 
-    showModalBottomSheet(
+    await showModalBottomSheet(
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
+      barrierColor: Colors.black.withValues(alpha: 0.24),
       builder: (sheetContext) {
         return _bottomSheetContainer(
           sheetContext: sheetContext,
@@ -259,7 +278,19 @@ class _SettingsScreenState extends State<SettingsScreen> {
             children: [
               _sheetHandle(),
               const SizedBox(height: 18),
-              _sheetTitle("Edit Profile"),
+              Row(
+                children: [
+                  _premiumIcon(
+                    icon: Icons.person_rounded,
+                    color: _blueMain,
+                    size: 52,
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: _sheetTitle("Edit Profile"),
+                  ),
+                ],
+              ),
               const SizedBox(height: 18),
               _inputField(
                 controller: nameController,
@@ -289,15 +320,19 @@ class _SettingsScreenState extends State<SettingsScreen> {
         );
       },
     );
+
+    nameController.dispose();
+    phoneController.dispose();
   }
 
-  void _openSosMessageSheet() {
+  Future<void> _openSosMessageSheet() async {
     final messageController = TextEditingController(text: defaultSosMessage);
 
-    showModalBottomSheet(
+    await showModalBottomSheet(
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
+      barrierColor: Colors.black.withValues(alpha: 0.24),
       builder: (sheetContext) {
         return _bottomSheetContainer(
           sheetContext: sheetContext,
@@ -306,27 +341,31 @@ class _SettingsScreenState extends State<SettingsScreen> {
             children: [
               _sheetHandle(),
               const SizedBox(height: 18),
-              _sheetTitle("Default SOS Message"),
-              const SizedBox(height: 18),
-              Container(
-                constraints: const BoxConstraints(minHeight: 130),
-                padding: const EdgeInsets.symmetric(horizontal: 14),
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(18),
-                ),
-                child: TextField(
-                  controller: messageController,
-                  maxLines: 5,
-                  decoration: InputDecoration(
-                    border: InputBorder.none,
-                    hintText: "Write your default SOS message",
-                    hintStyle: GoogleFonts.poppins(
-                      color: Colors.black26,
-                      fontSize: 12,
-                      fontWeight: FontWeight.w500,
-                    ),
+              Row(
+                children: [
+                  _premiumIcon(
+                    icon: Icons.sms_rounded,
+                    color: _danger,
+                    size: 52,
                   ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: _sheetTitle("Default SOS Message"),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 18),
+              TextField(
+                controller: messageController,
+                maxLines: 5,
+                style: GoogleFonts.poppins(
+                  color: _textMain,
+                  fontSize: 13,
+                  fontWeight: FontWeight.w600,
+                ),
+                decoration: _inputDecoration(
+                  hint: "Write your default SOS message",
+                  icon: Icons.edit_note_rounded,
                 ),
               ),
               const SizedBox(height: 18),
@@ -349,8 +388,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
         );
       },
     );
-  }
 
+    messageController.dispose();
+  }
 
   Future<void> _logout() async {
     try {
@@ -359,7 +399,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
       if (!mounted) return;
 
       _showMessage("Logged out successfully");
-
       Navigator.pop(context);
     } catch (e) {
       debugPrint("LOGOUT ERROR: $e");
@@ -370,26 +409,142 @@ class _SettingsScreenState extends State<SettingsScreen> {
   void _confirmLogout() {
     showDialog(
       context: context,
+      barrierColor: Colors.black.withValues(alpha: 0.28),
       builder: (dialogContext) {
-        return AlertDialog(
-          title: const Text("Logout?"),
-          content: const Text("Are you sure you want to logout?"),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(dialogContext),
-              child: const Text("Cancel"),
-            ),
-            TextButton(
-              onPressed: () {
-                Navigator.pop(dialogContext);
-                _logout();
-              },
-              child: const Text(
-                "Logout",
-                style: TextStyle(color: Color(0xFFFF6D6D)),
+        return Dialog(
+          backgroundColor: Colors.transparent,
+          insetPadding: const EdgeInsets.symmetric(horizontal: 24),
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(30),
+            child: BackdropFilter(
+              filter: ImageFilter.blur(sigmaX: 20, sigmaY: 20),
+              child: Container(
+                padding: const EdgeInsets.all(22),
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(30),
+                  gradient: LinearGradient(
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                    colors: darkModeOn
+                        ? [
+                            const Color(0xFF0F172A).withValues(alpha: 0.92),
+                            const Color(0xFF1E293B).withValues(alpha: 0.80),
+                          ]
+                        : [
+                            Colors.white.withValues(alpha: 0.92),
+                            const Color(0xFFEAF5FF).withValues(alpha: 0.80),
+                          ],
+                  ),
+                  border: Border.all(
+                    color: Colors.white.withValues(alpha: darkModeOn ? 0.12 : 0.82),
+                    width: 1.3,
+                  ),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.12),
+                      blurRadius: 34,
+                      offset: const Offset(0, 18),
+                    ),
+                  ],
+                ),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    _premiumIcon(
+                      icon: Icons.logout_rounded,
+                      color: _danger,
+                      size: 64,
+                    ),
+                    const SizedBox(height: 16),
+                    Text(
+                      "Logout?",
+                      style: GoogleFonts.poppins(
+                        color: _textMain,
+                        fontSize: 21,
+                        fontWeight: FontWeight.w900,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      "Are you sure you want to sign out from this account?",
+                      textAlign: TextAlign.center,
+                      style: GoogleFonts.poppins(
+                        color: _textMuted,
+                        fontSize: 13,
+                        height: 1.45,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                    const SizedBox(height: 22),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: GestureDetector(
+                            onTap: () => Navigator.pop(dialogContext),
+                            child: Container(
+                              height: 50,
+                              decoration: BoxDecoration(
+                                color: _glassStrong,
+                                borderRadius: BorderRadius.circular(18),
+                                border: Border.all(
+                                  color: Colors.white.withValues(
+                                    alpha: darkModeOn ? 0.10 : 0.75,
+                                  ),
+                                ),
+                              ),
+                              child: Center(
+                                child: Text(
+                                  "Cancel",
+                                  style: GoogleFonts.poppins(
+                                    color: _textMuted,
+                                    fontSize: 13,
+                                    fontWeight: FontWeight.w800,
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: GestureDetector(
+                            onTap: () {
+                              Navigator.pop(dialogContext);
+                              _logout();
+                            },
+                            child: Container(
+                              height: 50,
+                              decoration: BoxDecoration(
+                                color: _danger,
+                                borderRadius: BorderRadius.circular(18),
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: _danger.withValues(alpha: 0.24),
+                                    blurRadius: 18,
+                                    offset: const Offset(0, 10),
+                                  ),
+                                ],
+                              ),
+                              child: Center(
+                                child: Text(
+                                  "Logout",
+                                  style: GoogleFonts.poppins(
+                                    color: Colors.white,
+                                    fontSize: 13,
+                                    fontWeight: FontWeight.w900,
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
               ),
             ),
-          ],
+          ),
         );
       },
     );
@@ -421,232 +576,533 @@ class _SettingsScreenState extends State<SettingsScreen> {
         phoneNumber.trim().isEmpty ? "No phone added" : phoneNumber;
 
     return Scaffold(
-      backgroundColor:
-    darkModeOn ? const Color(0xFF121212) : const Color(0xFFF8F6FB),
-      body: SafeArea(
-        child: Column(
-          children: [
-            Padding(
-              padding: const EdgeInsets.fromLTRB(14, 12, 14, 8),
-              child: Row(
-                children: [
-                  _circleButton(
-                    icon: Icons.arrow_back_ios_new_rounded,
-                    onTap: () => Navigator.pop(context),
-                  ),
-                  Expanded(
-                    child: Center(
-                      child: Text(
-                        "Settings",
-                        style: GoogleFonts.poppins(
-                          color: darkModeOn ? Colors.white : const Color(0xFF2F2940),
-                          fontSize: 18,
-                          fontWeight: FontWeight.w800,
-                        ),
-                      ),
-                    ),
-                  ),
-                  Stack(
+      extendBodyBehindAppBar: true,
+      backgroundColor: darkModeOn ? const Color(0xFF020617) : const Color(0xFFEAF5FF),
+      body: Stack(
+        children: [
+          _background(),
+          Positioned(
+            top: -90,
+            right: -80,
+            child: _glowBlob(
+              color: _blueSoft,
+              size: 280,
+              opacity: darkModeOn ? 0.20 : 0.24,
+            ),
+          ),
+          Positioned(
+            top: 260,
+            left: -120,
+            child: _glowBlob(
+              color: _violet,
+              size: 280,
+              opacity: darkModeOn ? 0.15 : 0.13,
+            ),
+          ),
+          Positioned(
+            bottom: -90,
+            right: -80,
+            child: _glowBlob(
+              color: _cyan,
+              size: 260,
+              opacity: darkModeOn ? 0.16 : 0.16,
+            ),
+          ),
+          SafeArea(
+            child: Column(
+              children: [
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(20, 14, 20, 0),
+                  child: Row(
                     children: [
-                      Container(
-                        height: 34,
-                        width: 34,
-                        decoration: const BoxDecoration(
-                          shape: BoxShape.circle,
-                          color: Color(0xFFE8DFFF),
-                        ),
-                        child: const Icon(
-                          Icons.person_rounded,
-                          color: Color(0xFF8E6AE8),
-                          size: 20,
-                        ),
+                      _circleButton(
+                        icon: Icons.arrow_back_ios_new_rounded,
+                        onTap: () => Navigator.pop(context),
                       ),
-                      if (_isSaving)
-                        Positioned.fill(
-                          child: Container(
-                            decoration: const BoxDecoration(
-                              color: Color(0xCCFFFFFF),
-                              shape: BoxShape.circle,
-                            ),
-                            child: const Padding(
-                              padding: EdgeInsets.all(8),
-                              child: CircularProgressIndicator(
-                                strokeWidth: 2,
-                                color: Color(0xFF9B75F0),
+                      const Spacer(),
+                      _topPill(),
+                      const SizedBox(width: 10),
+                      _savingAvatar(),
+                    ],
+                  ),
+                ),
+                Expanded(
+                  child: _isLoading
+                      ? Center(
+                          child: CircularProgressIndicator(
+                            color: darkModeOn ? _blueSoft : _blueMain,
+                            strokeWidth: 2.6,
+                          ),
+                        )
+                      : SingleChildScrollView(
+                          physics: const BouncingScrollPhysics(),
+                          padding: const EdgeInsets.fromLTRB(20, 28, 20, 26),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                "Settings",
+                                style: GoogleFonts.poppins(
+                                  color: _textMain,
+                                  fontSize: 40,
+                                  height: 0.95,
+                                  fontWeight: FontWeight.w900,
+                                  letterSpacing: -1.1,
+                                ),
                               ),
-                            ),
+                              const SizedBox(height: 10),
+                              Text(
+                                "Control your safety preferences, profile, and emergency setup.",
+                                style: GoogleFonts.poppins(
+                                  color: _textMuted,
+                                  fontSize: 13,
+                                  height: 1.45,
+                                  fontWeight: FontWeight.w500,
+                                ),
+                              ),
+                              const SizedBox(height: 22),
+                              _profileHero(
+                                displayName: displayName,
+                                displayPhone: displayPhone,
+                              ),
+                              const SizedBox(height: 16),
+                              _quickStatusStrip(),
+                              const SizedBox(height: 24),
+                              _sectionTitle("ACCOUNT & SECURITY"),
+                              const SizedBox(height: 10),
+                              _settingsCard(
+                                children: [
+                                  _settingsItem(
+                                    icon: Icons.logout_rounded,
+                                    iconColor: _danger,
+                                    title: "Logout",
+                                    subtitle: "Sign out from this account",
+                                    onTap: _confirmLogout,
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(height: 22),
+                              _sectionTitle("APP PREFERENCES"),
+                              const SizedBox(height: 10),
+                              _settingsCard(
+                                children: [
+                                  _switchItem(
+                                    icon: Icons.dark_mode_rounded,
+                                    iconColor: _violet,
+                                    title: "Theme / Dark Mode",
+                                    subtitle: "Save dark mode preference",
+                                    value: darkModeOn,
+                                    onChanged: (value) {
+                                      AppThemeController.isDarkMode.value = value;
+                                      _saveSettings(newDarkModeOn: value);
+                                    },
+                                  ),
+                                  _divider(),
+                                  _switchItem(
+                                    icon: Icons.vibration_rounded,
+                                    iconColor: _blueMain,
+                                    title: "Sound & Vibration",
+                                    subtitle: "SOS sound and vibration preference",
+                                    value: soundVibrationOn,
+                                    onChanged: (value) {
+                                      _saveSettings(newSoundVibrationOn: value);
+                                    },
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(height: 22),
+                              _sectionTitle("SAFETY PREFERENCES"),
+                              const SizedBox(height: 10),
+                              _settingsCard(
+                                children: [
+                                  _settingsItem(
+                                    icon: Icons.sms_rounded,
+                                    iconColor: _danger,
+                                    title: "Default SOS Message",
+                                    subtitle: defaultSosMessage,
+                                    onTap: _openSosMessageSheet,
+                                  ),
+                                  _divider(),
+                                  _switchItem(
+                                    icon: Icons.my_location_rounded,
+                                    iconColor: _success,
+                                    title: "Auto Share Location in SOS",
+                                    subtitle: "Attach location during SOS alerts",
+                                    value: autoShareLocationOn,
+                                    onChanged: (value) {
+                                      _saveSettings(
+                                        newAutoShareLocationOn: value,
+                                      );
+                                    },
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(height: 22),
+                              _sectionTitle("SUPPORT"),
+                              const SizedBox(height: 10),
+                              _settingsCard(
+                                children: [
+                                  _settingsItem(
+                                    icon: Icons.help_rounded,
+                                    iconColor: _blueMain,
+                                    title: "Help & Support",
+                                    subtitle: "Get assistance and guidance",
+                                    onTap: _showHelpMessage,
+                                  ),
+                                  _divider(),
+                                  _settingsItem(
+                                    icon: Icons.info_rounded,
+                                    iconColor: _cyan,
+                                    title: "About App",
+                                    subtitle: "Amaan Women Safety App",
+                                    onTap: _showAboutMessage,
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(height: 16),
+                              _versionCard(),
+                            ],
                           ),
                         ),
-                    ],
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _background() {
+    return Container(
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: darkModeOn
+              ? const [
+                  Color(0xFF020617),
+                  Color(0xFF0F172A),
+                  Color(0xFF111827),
+                ]
+              : const [
+                  Color(0xFFEAF5FF),
+                  Color(0xFFE0F2FE),
+                  Color(0xFFF4F7FF),
+                ],
+        ),
+      ),
+    );
+  }
+
+  Widget _profileHero({
+    required String displayName,
+    required String displayPhone,
+  }) {
+    return _glassCard(
+      radius: 30,
+      padding: const EdgeInsets.all(18),
+      child: Row(
+        children: [
+          Container(
+            height: 68,
+            width: 68,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              gradient: const LinearGradient(
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors: [
+                  _blueMain,
+                  _blueSoft,
+                ],
+              ),
+              boxShadow: [
+                BoxShadow(
+                  color: _blueMain.withValues(alpha: 0.22),
+                  blurRadius: 26,
+                  offset: const Offset(0, 14),
+                ),
+              ],
+            ),
+            child: Center(
+              child: Text(
+                _initialFromName(displayName),
+                style: GoogleFonts.poppins(
+                  color: Colors.white,
+                  fontSize: 24,
+                  fontWeight: FontWeight.w900,
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(width: 15),
+          Expanded(
+            child: GestureDetector(
+              onTap: _openEditProfileSheet,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    displayName,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: GoogleFonts.poppins(
+                      color: _textMain,
+                      fontSize: 18,
+                      fontWeight: FontWeight.w900,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    displayPhone,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: GoogleFonts.poppins(
+                      color: _textMuted,
+                      fontSize: 12.5,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                  const SizedBox(height: 10),
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 10,
+                      vertical: 6,
+                    ),
+                    decoration: BoxDecoration(
+                      color: _blueMain.withValues(alpha: darkModeOn ? 0.20 : 0.10),
+                      borderRadius: BorderRadius.circular(99),
+                      border: Border.all(
+                        color: _blueMain.withValues(alpha: darkModeOn ? 0.28 : 0.16),
+                      ),
+                    ),
+                    child: Text(
+                      "Tap to edit profile",
+                      style: GoogleFonts.poppins(
+                        color: darkModeOn ? _blueSoft : _blueMain,
+                        fontSize: 10.5,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
                   ),
                 ],
               ),
             ),
-            Expanded(
-              child: _isLoading
-                  ? const Center(
-                      child: CircularProgressIndicator(
-                        color: Color(0xFF9B75F0),
-                      ),
-                    )
-                  : SingleChildScrollView(
-                      padding: const EdgeInsets.fromLTRB(0, 12, 0, 20),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          _settingsCard(
-                            children: [
-                              ListTile(
-                                onTap: _openEditProfileSheet,
-                                leading: Container(
-                                  height: 46,
-                                  width: 46,
-                                  decoration: const BoxDecoration(
-                                    color: Color(0xFFE8DFFF),
-                                    shape: BoxShape.circle,
-                                  ),
-                                  child: const Icon(
-                                    Icons.person_rounded,
-                                    color: Color(0xFF8E6AE8),
-                                  ),
-                                ),
-                                title: Text(
-                                  displayName,
-                                  style: GoogleFonts.poppins(
-                                    color: darkModeOn ? Colors.white : const Color(0xFF2F2940),
-                                    fontSize: 14,
-                                    fontWeight: FontWeight.w800,
-                                  ),
-                                ),
-                                subtitle: Text(
-                                  displayPhone,
-                                  style: GoogleFonts.poppins(
-                                    color: darkModeOn ? Colors.white70 : Colors.black45,
-                                    fontSize: 11,
-                                    fontWeight: FontWeight.w500,
-                                  ),
-                                ),
-                                trailing: const Icon(
-                                  Icons.edit_rounded,
-                                  color: Color(0xFF9B75F0),
-                                  size: 19,
-                                ),
-                              ),
-                            ],
-                          ),
-                          const SizedBox(height: 22),
-                          _sectionTitle("ACCOUNT & SECURITY"),
-                          const SizedBox(height: 10),
-                          _settingsCard(
-                            children: [
-                             
-                              
-                              _settingsItem(
-                                icon: Icons.logout_rounded,
-                                iconColor: const Color(0xFFFF6D6D),
-                                iconBg: const Color(0xFFFFEFEF),
-                                title: "Logout",
-                                subtitle: "Sign out from this account",
-                                onTap: _confirmLogout,
-                              ),
-                            ],
-                          ),
-                          const SizedBox(height: 22),
-                          _sectionTitle("APP PREFERENCES"),
-                          const SizedBox(height: 10),
-                          _settingsCard(
-                            children: [
-                            
-                              _switchItem(
-                                icon: Icons.dark_mode_rounded,
-                                iconColor: const Color(0xFF9B75F0),
-                                iconBg: const Color(0xFFF0E9FF),
-                                title: "Theme / Dark Mode",
-                                subtitle: "Save dark mode preference",
-                                value: darkModeOn,
-                                onChanged: (value) {
-                                  AppThemeController.isDarkMode.value = value;
-                                  _saveSettings(newDarkModeOn: value);
-                                },
-                              ),
-                              _divider(),
-                              
-                              _switchItem(
-                                icon: Icons.vibration_rounded,
-                                iconColor: const Color(0xFF9B75F0),
-                                iconBg: const Color(0xFFF0E9FF),
-                                title: "Sound & Vibration",
-                                subtitle: "SOS sound and vibration preference",
-                                value: soundVibrationOn,
-                                onChanged: (value) {
-                                  _saveSettings(newSoundVibrationOn: value);
-                                },
-                              ),
-                            ],
-                          ),
-                          const SizedBox(height: 22),
-                          _sectionTitle("SAFETY PREFERENCES"),
-                          const SizedBox(height: 10),
-                          _settingsCard(
-                            children: [
-                              _settingsItem(
-                                icon: Icons.sms_rounded,
-                                iconColor: const Color(0xFFFF6D6D),
-                                iconBg: const Color(0xFFFFEFEF),
-                                title: "Default SOS Message",
-                                subtitle: defaultSosMessage,
-                                onTap: _openSosMessageSheet,
-                              ),
-                              _divider(),
-                              _switchItem(
-                                icon: Icons.my_location_rounded,
-                                iconColor: const Color(0xFFFF6D6D),
-                                iconBg: const Color(0xFFFFEFEF),
-                                title: "Auto Share Location in SOS",
-                                subtitle: "Attach location during SOS alerts",
-                                value: autoShareLocationOn,
-                                onChanged: (value) {
-                                  _saveSettings(
-                                    newAutoShareLocationOn: value,
-                                  );
-                                },
-                              ),
-                              _divider(),
-                             
-                              
-                            ],
-                          ),
-                          const SizedBox(height: 22),
-                          _sectionTitle("SUPPORT"),
-                          const SizedBox(height: 10),
-                          _settingsCard(
-                            children: [
-                              _settingsItem(
-                                icon: Icons.help_rounded,
-                                iconColor: const Color(0xFF6E6878),
-                                iconBg: const Color(0xFFEFF0F4),
-                                title: "Help & Support",
-                                subtitle: null,
-                                onTap: _showHelpMessage,
-                              ),
-                              _divider(),
-                              _settingsItem(
-                                icon: Icons.info_rounded,
-                                iconColor: const Color(0xFF6E6878),
-                                iconBg: const Color(0xFFEFF0F4),
-                                title: "About App",
-                                subtitle: "Amaan Women Safety App",
-                                onTap: _showAboutMessage,
-                              ),
-                            ],
-                          ),
-                        ],
-                      ),
-                    ),
-            ),
-          ],
+          ),
+          const SizedBox(width: 10),
+          _smallCircleAction(
+            icon: Icons.edit_rounded,
+            color: _blueMain,
+            onTap: _openEditProfileSheet,
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _quickStatusStrip() {
+  return Row(
+    children: [
+      Expanded(
+        child: _miniStatusCard(
+          icon: Icons.notifications_active_rounded,
+          label: "Alerts",
+          value: notificationsOn ? "On" : "Off",
+          color: _blueMain,
+          onTap: () {
+            _saveSettings(
+              newNotificationsOn: !notificationsOn,
+            );
+          },
         ),
       ),
+      const SizedBox(width: 12),
+      Expanded(
+        child: _miniStatusCard(
+          icon: Icons.location_on_rounded,
+          label: "Location",
+          value: autoShareLocationOn ? "Auto" : "Manual",
+          color: _success,
+          onTap: () {
+            _saveSettings(
+              newAutoShareLocationOn: !autoShareLocationOn,
+            );
+          },
+        ),
+      ),
+    ],
+  );
+}
+
+  Widget _miniStatusCard({
+  required IconData icon,
+  required String label,
+  required String value,
+  required Color color,
+  required VoidCallback onTap,
+}) {
+  return GestureDetector(
+    onTap: onTap,
+    child: _glassCard(
+      radius: 22,
+      padding: const EdgeInsets.all(14),
+      child: Row(
+        children: [
+          Container(
+            height: 42,
+            width: 42,
+            decoration: BoxDecoration(
+              color: color.withValues(alpha: darkModeOn ? 0.18 : 0.12),
+              borderRadius: BorderRadius.circular(15),
+            ),
+            child: Icon(icon, color: color, size: 21),
+          ),
+          const SizedBox(width: 11),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  value,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: GoogleFonts.poppins(
+                    color: _textMain,
+                    fontSize: 15,
+                    fontWeight: FontWeight.w900,
+                  ),
+                ),
+                Text(
+                  label,
+                  style: GoogleFonts.poppins(
+                    color: _textMuted,
+                    fontSize: 10.5,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          Icon(
+            Icons.touch_app_rounded,
+            color: color.withValues(alpha: 0.70),
+            size: 17,
+          ),
+        ],
+      ),
+    ),
+  );
+}
+  Widget _versionCard() {
+    return _glassCard(
+      radius: 24,
+      padding: const EdgeInsets.all(16),
+      child: Row(
+        children: [
+          _premiumIcon(
+            icon: Icons.shield_moon_rounded,
+            color: _cyan,
+            size: 46,
+          ),
+          const SizedBox(width: 13),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  "Amaan Safety",
+                  style: GoogleFonts.poppins(
+                    color: _textMain,
+                    fontSize: 14,
+                    fontWeight: FontWeight.w900,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  "Version 1.0 • Premium safety controls",
+                  style: GoogleFonts.poppins(
+                    color: _textMuted,
+                    fontSize: 11,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _topPill() {
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(99),
+      child: BackdropFilter(
+        filter: ImageFilter.blur(sigmaX: 16, sigmaY: 16),
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 13, vertical: 9),
+          decoration: BoxDecoration(
+            color: _glassLight,
+            borderRadius: BorderRadius.circular(99),
+            border: Border.all(
+              color: Colors.white.withValues(alpha: darkModeOn ? 0.12 : 0.72),
+              width: 1.1,
+            ),
+          ),
+          child: Row(
+            children: [
+              Icon(
+                Icons.tune_rounded,
+                color: darkModeOn ? _blueSoft : _blueMain,
+                size: 16,
+              ),
+              const SizedBox(width: 7),
+              Text(
+                "Settings",
+                style: GoogleFonts.poppins(
+                  color: _textMain,
+                  fontSize: 11,
+                  fontWeight: FontWeight.w900,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _savingAvatar() {
+    return Stack(
+      children: [
+        _circleButton(
+          icon: Icons.person_rounded,
+          onTap: _openEditProfileSheet,
+        ),
+        if (_isSaving)
+          Positioned.fill(
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(99),
+              child: BackdropFilter(
+                filter: ImageFilter.blur(sigmaX: 8, sigmaY: 8),
+                child: Container(
+                  decoration: BoxDecoration(
+                    color: Colors.white.withValues(alpha: 0.45),
+                    shape: BoxShape.circle,
+                  ),
+                  child: const Padding(
+                    padding: EdgeInsets.all(12),
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                      color: _blueMain,
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+      ],
     );
   }
 
@@ -654,20 +1110,42 @@ class _SettingsScreenState extends State<SettingsScreen> {
     required BuildContext sheetContext,
     required Widget child,
   }) {
-    return Container(
-      padding: EdgeInsets.only(
-        left: 20,
-        right: 20,
-        top: 20,
-        bottom: MediaQuery.of(sheetContext).viewInsets.bottom + 20,
-      ),
-      decoration:  BoxDecoration(
-        color: darkModeOn ? const Color(0xFF1E1E1E) : Colors.white,
-        borderRadius: BorderRadius.vertical(
-          top: Radius.circular(28),
+    return ClipRRect(
+      borderRadius: const BorderRadius.vertical(top: Radius.circular(34)),
+      child: BackdropFilter(
+        filter: ImageFilter.blur(sigmaX: 24, sigmaY: 24),
+        child: Container(
+          padding: EdgeInsets.only(
+            left: 20,
+            right: 20,
+            top: 18,
+            bottom: MediaQuery.of(sheetContext).viewInsets.bottom + 22,
+          ),
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+              colors: darkModeOn
+                  ? [
+                      const Color(0xFF0F172A).withValues(alpha: 0.94),
+                      const Color(0xFF1E293B).withValues(alpha: 0.86),
+                    ]
+                  : [
+                      Colors.white.withValues(alpha: 0.94),
+                      const Color(0xFFEAF5FF).withValues(alpha: 0.86),
+                      const Color(0xFFDDF6FF).withValues(alpha: 0.72),
+                    ],
+            ),
+            border: Border(
+              top: BorderSide(
+                color: Colors.white.withValues(alpha: darkModeOn ? 0.12 : 0.86),
+                width: 1.4,
+              ),
+            ),
+          ),
+          child: SingleChildScrollView(child: child),
         ),
       ),
-      child: SingleChildScrollView(child: child),
     );
   }
 
@@ -677,29 +1155,51 @@ class _SettingsScreenState extends State<SettingsScreen> {
     required IconData icon,
     TextInputType? keyboardType,
   }) {
-    return Container(
-      height: 52,
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
+    return TextField(
+      controller: controller,
+      keyboardType: keyboardType,
+      style: GoogleFonts.poppins(
+        color: _textMain,
+        fontSize: 13.5,
+        fontWeight: FontWeight.w700,
       ),
-      child: TextField(
-        controller: controller,
-        keyboardType: keyboardType,
-        decoration: InputDecoration(
-          prefixIcon: Icon(
-            icon,
-            color: const Color(0xFF9B75F0),
-            size: 20,
-          ),
-          hintText: hint,
-          hintStyle: GoogleFonts.poppins(
-            color: Colors.black26,
-            fontSize: 12,
-            fontWeight: FontWeight.w500,
-          ),
-          border: InputBorder.none,
-          contentPadding: const EdgeInsets.only(top: 15),
+      decoration: _inputDecoration(
+        hint: hint,
+        icon: icon,
+      ),
+    );
+  }
+
+  InputDecoration _inputDecoration({
+    required String hint,
+    required IconData icon,
+  }) {
+    return InputDecoration(
+      prefixIcon: Icon(
+        icon,
+        color: darkModeOn ? _blueSoft : _blueMain,
+        size: 20,
+      ),
+      hintText: hint,
+      hintStyle: GoogleFonts.poppins(
+        color: _textMuted.withValues(alpha: 0.65),
+        fontSize: 12,
+        fontWeight: FontWeight.w500,
+      ),
+      filled: true,
+      fillColor: _glassStrong,
+      contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 16),
+      enabledBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(18),
+        borderSide: BorderSide(
+          color: Colors.white.withValues(alpha: darkModeOn ? 0.10 : 0.78),
+        ),
+      ),
+      focusedBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(18),
+        borderSide: BorderSide(
+          color: darkModeOn ? _blueSoft : _blueMain,
+          width: 1.4,
         ),
       ),
     );
@@ -712,11 +1212,25 @@ class _SettingsScreenState extends State<SettingsScreen> {
     return GestureDetector(
       onTap: onTap,
       child: Container(
-        height: 54,
+        height: 56,
         width: double.infinity,
         decoration: BoxDecoration(
-          color: const Color(0xFF9B75F0),
-          borderRadius: BorderRadius.circular(17),
+          borderRadius: BorderRadius.circular(20),
+          gradient: const LinearGradient(
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: [
+              _blueMain,
+              _blueSoft,
+            ],
+          ),
+          boxShadow: [
+            BoxShadow(
+              color: _blueMain.withValues(alpha: 0.26),
+              blurRadius: 24,
+              offset: const Offset(0, 12),
+            ),
+          ],
         ),
         child: Center(
           child: Text(
@@ -724,7 +1238,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
             style: GoogleFonts.poppins(
               color: Colors.white,
               fontSize: 14,
-              fontWeight: FontWeight.w800,
+              fontWeight: FontWeight.w900,
             ),
           ),
         ),
@@ -733,12 +1247,14 @@ class _SettingsScreenState extends State<SettingsScreen> {
   }
 
   Widget _sheetHandle() {
-    return Container(
-      height: 5,
-      width: 45,
-      decoration: BoxDecoration(
-        color: Colors.black12,
-        borderRadius: BorderRadius.circular(20),
+    return Center(
+      child: Container(
+        height: 5,
+        width: 46,
+        decoration: BoxDecoration(
+          color: _textMuted.withValues(alpha: 0.26),
+          borderRadius: BorderRadius.circular(99),
+        ),
       ),
     );
   }
@@ -747,24 +1263,21 @@ class _SettingsScreenState extends State<SettingsScreen> {
     return Text(
       text,
       style: GoogleFonts.poppins(
-        color: darkModeOn ? Colors.white : const Color(0xFF2F2940),
-        fontSize: 18,
-        fontWeight: FontWeight.w800,
+        color: _textMain,
+        fontSize: 19,
+        fontWeight: FontWeight.w900,
       ),
     );
   }
 
   Widget _sectionTitle(String text) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 18),
-      child: Text(
-        text,
-        style: GoogleFonts.poppins(
-          color: const Color(0xFF9D95AD),
-          fontSize: 11,
-          fontWeight: FontWeight.w800,
-          letterSpacing: 0.7,
-        ),
+    return Text(
+      text,
+      style: GoogleFonts.poppins(
+        color: _textMuted.withValues(alpha: 0.92),
+        fontSize: 11,
+        fontWeight: FontWeight.w900,
+        letterSpacing: 0.9,
       ),
     );
   }
@@ -772,19 +1285,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
   Widget _settingsCard({
     required List<Widget> children,
   }) {
-    return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 14),
-      decoration: BoxDecoration(
-        color: darkModeOn ? const Color(0xFF1E1E1E) : const Color(0xFFFFFFFF),
-        borderRadius: BorderRadius.circular(22),
-        boxShadow: const [
-          BoxShadow(
-            color: Color(0x0A000000),
-            blurRadius: 14,
-            offset: Offset(0, 8),
-          ),
-        ],
-      ),
+    return _glassCard(
+      radius: 26,
+      padding: EdgeInsets.zero,
       child: Column(
         children: children,
       ),
@@ -794,73 +1297,77 @@ class _SettingsScreenState extends State<SettingsScreen> {
   Widget _settingsItem({
     required IconData icon,
     required Color iconColor,
-    required Color iconBg,
     required String title,
     String? subtitle,
     String? trailingText,
     required VoidCallback onTap,
   }) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        constraints: const BoxConstraints(minHeight: 62),
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-        child: Row(
-          children: [
-            _iconBox(
-              icon: icon,
-              iconColor: iconColor,
-              iconBg: iconBg,
-            ),
-            const SizedBox(width: 13),
-            Expanded(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    title,
-                    style: GoogleFonts.poppins(
-                      color: darkModeOn ? Colors.white : const Color(0xFF4A4358),
-                      fontSize: 12.5,
-                      fontWeight: FontWeight.w700,
-                    ),
-                  ),
-                  if (subtitle != null) ...[
-                    const SizedBox(height: 3),
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        borderRadius: BorderRadius.circular(26),
+        onTap: onTap,
+        child: Container(
+          constraints: const BoxConstraints(minHeight: 72),
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+          child: Row(
+            children: [
+              _premiumIcon(
+                icon: icon,
+                color: iconColor,
+                size: 44,
+              ),
+              const SizedBox(width: 13),
+              Expanded(
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
                     Text(
-                      subtitle,
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
+                      title,
                       style: GoogleFonts.poppins(
-                        color: darkModeOn ? Colors.white70 : Colors.black45,
-                        fontSize: 10.5,
-                        fontWeight: FontWeight.w500,
+                        color: _textMain,
+                        fontSize: 13,
+                        fontWeight: FontWeight.w900,
                       ),
                     ),
+                    if (subtitle != null) ...[
+                      const SizedBox(height: 4),
+                      Text(
+                        subtitle,
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: GoogleFonts.poppins(
+                          color: _textMuted,
+                          fontSize: 11,
+                          height: 1.35,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                    ],
                   ],
-                ],
-              ),
-            ),
-            if (trailingText != null)
-              Flexible(
-                child: Text(
-                  trailingText,
-                  overflow: TextOverflow.ellipsis,
-                  style: GoogleFonts.poppins(
-                    color: Colors.black38,
-                    fontSize: 11,
-                    fontWeight: FontWeight.w600,
-                  ),
                 ),
               ),
-            const SizedBox(width: 8),
-            const Icon(
-              Icons.arrow_forward_ios_rounded,
-              color: Color(0xFFD1CBDD),
-              size: 14,
-            ),
-          ],
+              if (trailingText != null)
+                Flexible(
+                  child: Text(
+                    trailingText,
+                    overflow: TextOverflow.ellipsis,
+                    style: GoogleFonts.poppins(
+                      color: _textMuted,
+                      fontSize: 11,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
+              const SizedBox(width: 8),
+              Icon(
+                Icons.arrow_forward_ios_rounded,
+                color: _textMuted.withValues(alpha: 0.45),
+                size: 14,
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -869,21 +1376,20 @@ class _SettingsScreenState extends State<SettingsScreen> {
   Widget _switchItem({
     required IconData icon,
     required Color iconColor,
-    required Color iconBg,
     required String title,
     required String subtitle,
     required bool value,
     required ValueChanged<bool> onChanged,
   }) {
     return Container(
-      height: 68,
-      padding: const EdgeInsets.symmetric(horizontal: 14),
+  constraints: const BoxConstraints(minHeight: 74),
+  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       child: Row(
         children: [
-          _iconBox(
+          _premiumIcon(
             icon: icon,
-            iconColor: iconColor,
-            iconBg: iconBg,
+            color: iconColor,
+            size: 44,
           ),
           const SizedBox(width: 13),
           Expanded(
@@ -894,17 +1400,18 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 Text(
                   title,
                   style: GoogleFonts.poppins(
-                    color: darkModeOn ? Colors.white : const Color(0xFF4A4358),
-                    fontSize: 12.5,
-                    fontWeight: FontWeight.w700,
+                    color: _textMain,
+                    fontSize: 13,
+                    fontWeight: FontWeight.w900,
                   ),
                 ),
-                const SizedBox(height: 3),
+                const SizedBox(height: 4),
                 Text(
                   subtitle,
                   style: GoogleFonts.poppins(
-                    color: darkModeOn ? Colors.white70 : Colors.black45,
-                    fontSize: 10.5,
+                    color: _textMuted,
+                    fontSize: 11,
+                    height: 1.35,
                     fontWeight: FontWeight.w500,
                   ),
                 ),
@@ -912,14 +1419,14 @@ class _SettingsScreenState extends State<SettingsScreen> {
             ),
           ),
           Transform.scale(
-            scale: 0.82,
+            scale: 0.86,
             child: Switch(
               value: value,
               onChanged: onChanged,
               activeThumbColor: Colors.white,
-              activeTrackColor: const Color(0xFF9B75F0),
+              activeTrackColor: darkModeOn ? _blueSoft : _blueMain,
               inactiveThumbColor: Colors.white,
-              inactiveTrackColor: const Color(0xFFE4DDEE),
+              inactiveTrackColor: _textMuted.withValues(alpha: 0.24),
             ),
           ),
         ],
@@ -927,22 +1434,84 @@ class _SettingsScreenState extends State<SettingsScreen> {
     );
   }
 
-  Widget _iconBox({
+  Widget _glassCard({
+    required Widget child,
+    EdgeInsetsGeometry padding = const EdgeInsets.all(18),
+    double radius = 28,
+  }) {
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(radius),
+      child: BackdropFilter(
+        filter: ImageFilter.blur(sigmaX: 22, sigmaY: 22),
+        child: Container(
+          width: double.infinity,
+          padding: padding,
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(radius),
+            gradient: LinearGradient(
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+              colors: darkModeOn
+                  ? [
+                      Colors.white.withValues(alpha: 0.10),
+                      Colors.white.withValues(alpha: 0.045),
+                    ]
+                  : [
+                      Colors.white.withValues(alpha: 0.72),
+                      Colors.white.withValues(alpha: 0.36),
+                    ],
+            ),
+            border: Border.all(
+              color: Colors.white.withValues(alpha: darkModeOn ? 0.11 : 0.76),
+              width: 1.25,
+            ),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: darkModeOn ? 0.18 : 0.055),
+                blurRadius: 28,
+                offset: const Offset(0, 16),
+              ),
+              if (!darkModeOn)
+                BoxShadow(
+                  color: Colors.white.withValues(alpha: 0.52),
+                  blurRadius: 10,
+                  offset: const Offset(-4, -4),
+                ),
+            ],
+          ),
+          child: child,
+        ),
+      ),
+    );
+  }
+
+  Widget _premiumIcon({
     required IconData icon,
-    required Color iconColor,
-    required Color iconBg,
+    required Color color,
+    double size = 42,
   }) {
     return Container(
-      height: 38,
-      width: 38,
+      height: size,
+      width: size,
       decoration: BoxDecoration(
-        color: iconBg,
-        borderRadius: BorderRadius.circular(13),
+        shape: BoxShape.circle,
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [
+            color.withValues(alpha: darkModeOn ? 0.22 : 0.15),
+            Colors.white.withValues(alpha: darkModeOn ? 0.06 : 0.72),
+          ],
+        ),
+        border: Border.all(
+          color: Colors.white.withValues(alpha: darkModeOn ? 0.10 : 0.80),
+          width: 1.1,
+        ),
       ),
       child: Icon(
         icon,
-        color: iconColor,
-        size: 19,
+        color: color,
+        size: size * 0.46,
       ),
     );
   }
@@ -951,19 +1520,62 @@ class _SettingsScreenState extends State<SettingsScreen> {
     required IconData icon,
     required VoidCallback onTap,
   }) {
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(99),
+      child: BackdropFilter(
+        filter: ImageFilter.blur(sigmaX: 16, sigmaY: 16),
+        child: GestureDetector(
+          onTap: onTap,
+          child: Container(
+            height: 48,
+            width: 48,
+            decoration: BoxDecoration(
+              color: _glassLight,
+              shape: BoxShape.circle,
+              border: Border.all(
+                color: Colors.white.withValues(alpha: darkModeOn ? 0.10 : 0.76),
+                width: 1.2,
+              ),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: darkModeOn ? 0.16 : 0.045),
+                  blurRadius: 18,
+                  offset: const Offset(0, 9),
+                ),
+              ],
+            ),
+            child: Icon(
+              icon,
+              color: _textMain,
+              size: 21,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _smallCircleAction({
+    required IconData icon,
+    required Color color,
+    required VoidCallback onTap,
+  }) {
     return GestureDetector(
       onTap: onTap,
       child: Container(
-        height: 34,
-        width: 34,
-        decoration: const BoxDecoration(
-          color: Colors.white,
+        height: 42,
+        width: 42,
+        decoration: BoxDecoration(
           shape: BoxShape.circle,
+          color: color.withValues(alpha: darkModeOn ? 0.20 : 0.12),
+          border: Border.all(
+            color: color.withValues(alpha: darkModeOn ? 0.24 : 0.16),
+          ),
         ),
         child: Icon(
           icon,
-          color: darkModeOn ? Colors.white70 : Colors.black45,
-          size: 16,
+          color: darkModeOn ? _blueSoft : color,
+          size: 20,
         ),
       ),
     );
@@ -971,11 +1583,43 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
   Widget _divider() {
     return Padding(
-      padding: const EdgeInsets.only(left: 65),
+      padding: const EdgeInsets.only(left: 73),
       child: Container(
         height: 1,
-        color: darkModeOn ? const Color(0xFF333333) : const Color(0xFFF0ECF7),
+        color: Colors.white.withValues(alpha: darkModeOn ? 0.08 : 0.42),
       ),
     );
+  }
+
+  Widget _glowBlob({
+    required Color color,
+    required double size,
+    required double opacity,
+  }) {
+    return Container(
+      height: size,
+      width: size,
+      decoration: BoxDecoration(
+        shape: BoxShape.circle,
+        color: color.withValues(alpha: opacity),
+        boxShadow: [
+          BoxShadow(
+            color: color.withValues(alpha: opacity),
+            blurRadius: 95,
+            spreadRadius: 26,
+          ),
+        ],
+      ),
+    );
+  }
+
+  String _initialFromName(String name) {
+    final cleanedName = name.trim();
+
+    if (cleanedName.isEmpty || cleanedName == "Amaan User") {
+      return "A";
+    }
+
+    return cleanedName[0].toUpperCase();
   }
 }
