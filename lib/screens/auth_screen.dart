@@ -1,12 +1,13 @@
 import 'dart:async';
 import 'dart:ui';
+import 'package:google_sign_in/google_sign_in.dart';
 
 import 'package:amaan_app/screens/home_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
-import 'package:url_launcher/url_launcher.dart';
+
 
 import 'signin_screen.dart';
 
@@ -80,20 +81,49 @@ class _AuthScreenState extends State<AuthScreen> with TickerProviderStateMixin {
     super.dispose();
   }
 
-  Future<void> _signInWithGoogle() async {
-    try {
-      await Supabase.instance.client.auth.signInWithOAuth(
-        OAuthProvider.google,
-        redirectTo: 'amaan://login-callback',
-        authScreenLaunchMode: LaunchMode.externalApplication,
-      );
-    } catch (e) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text("Google error: $e")),
-      );
+ Future<void> _signInWithGoogle() async {
+  try {
+    const webClientId = '934887910341-u7rvsd8pj9solgbju5ni4fsblmtkebau.apps.googleusercontent.com';
+
+    final googleSignIn = GoogleSignIn.instance;
+
+    await googleSignIn.initialize(
+      serverClientId: webClientId,
+    );
+
+    
+
+    final googleUser = await googleSignIn.authenticate();
+
+    const scopes = <String>['email', 'profile'];
+
+    final authorization =
+        await googleUser.authorizationClient.authorizationForScopes(scopes) ??
+            await googleUser.authorizationClient.authorizeScopes(scopes);
+
+    final idToken = googleUser.authentication.idToken;
+
+    if (idToken == null) {
+      throw const AuthException('No Google ID token found.');
     }
+
+    await Supabase.instance.client.auth.signInWithIdToken(
+      provider: OAuthProvider.google,
+      idToken: idToken,
+      accessToken: authorization.accessToken,
+    );
+  } on GoogleSignInException catch (e) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text("Google sign-in cancelled or failed: ${e.description}")),
+    );
+  } catch (e) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text("Google error: $e")),
+    );
   }
+}
 
   Future<void> _signUp() async {
     HapticFeedback.lightImpact();
