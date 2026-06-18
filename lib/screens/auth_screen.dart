@@ -20,8 +20,12 @@ class _AuthScreenState extends State<AuthScreen> with TickerProviderStateMixin {
   late AnimationController _bgController;
   late AnimationController _shimmerController;
 
-  final emailController = TextEditingController();
-  final passController = TextEditingController();
+  final firstNameController = TextEditingController();
+final lastNameController = TextEditingController();
+final ageController = TextEditingController();
+final emailController = TextEditingController();
+final passController = TextEditingController();
+final confirmPassController = TextEditingController();
 
   @override
   void initState() {
@@ -42,8 +46,12 @@ class _AuthScreenState extends State<AuthScreen> with TickerProviderStateMixin {
   void dispose() {
     _bgController.dispose();
     _shimmerController.dispose();
-    emailController.dispose();
-    passController.dispose();
+    firstNameController.dispose();
+lastNameController.dispose();
+ageController.dispose();
+emailController.dispose();
+passController.dispose();
+confirmPassController.dispose();
     super.dispose();
   }
 
@@ -78,47 +86,84 @@ class _AuthScreenState extends State<AuthScreen> with TickerProviderStateMixin {
   }
 
   Future<void> _signUp() async {
-    HapticFeedback.lightImpact();
+  HapticFeedback.lightImpact();
 
-    final email = emailController.text.trim();
-    final password = passController.text.trim();
+  final firstName = firstNameController.text.trim();
+  final lastName = lastNameController.text.trim();
+  final ageText = ageController.text.trim();
+  final email = emailController.text.trim();
+  final password = passController.text.trim();
+  final confirmPassword = confirmPassController.text.trim();
 
-    if (email.isEmpty || password.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("Fill all fields")),
-      );
-      return;
-    }
-
-    setState(() => _loading = true);
-
-    try {
-      final res = await Supabase.instance.client.auth.signUp(
-        email: email,
-        password: password,
-      );
-
-      if (!mounted) return;
-
-      if (res.user != null) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text("Account created! Check your email 📩"),
-          ),
-        );
-      }
-    } catch (e) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text("Error: $e")),
-      );
-    }
-
-    if (mounted) {
-      setState(() => _loading = false);
-    }
+  if (firstName.isEmpty ||
+      lastName.isEmpty ||
+      ageText.isEmpty ||
+      email.isEmpty ||
+      password.isEmpty ||
+      confirmPassword.isEmpty) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text("Please fill all fields")),
+    );
+    return;
   }
 
+  final age = int.tryParse(ageText);
+  if (age == null || age < 13 || age > 100) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text("Please enter a valid age")),
+    );
+    return;
+  }
+
+  if (password.length < 6) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text("Password must be at least 6 characters")),
+    );
+    return;
+  }
+
+  if (password != confirmPassword) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text("Passwords do not match")),
+    );
+    return;
+  }
+
+  setState(() => _loading = true);
+
+  try {
+    final res = await Supabase.instance.client.auth.signUp(
+  email: email,
+  password: password,
+ emailRedirectTo: 'amaan://login-callback',
+  data: {
+    'first_name': firstName,
+    'last_name': lastName,
+    'age': age,
+    'full_name': '$firstName $lastName',
+  },
+);
+
+    if (!mounted) return;
+
+    if (res.user != null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text("Account created! Please check your email for verification 📩"),
+        ),
+      );
+    }
+  } catch (e) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text("Error: $e")),
+    );
+  }
+
+  if (mounted) {
+    setState(() => _loading = false);
+  }
+}
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -186,66 +231,88 @@ class _AuthScreenState extends State<AuthScreen> with TickerProviderStateMixin {
                                 color: Colors.white.withOpacity(0.3),
                               ),
                             ),
-                            child: Column(
-                              children: [
-                                _field(
-                                  controller: emailController,
-                                  label: "Email",
-                                  icon: Icons.email_outlined,
-                                ),
-                                const SizedBox(height: 16),
-                                _field(
-                                  controller: passController,
-                                  label: "Password",
-                                  icon: Icons.lock_outline,
-                                  isPassword: true,
-                                ),
-                                const SizedBox(height: 8),
-                                const Align(
-                                  alignment: Alignment.centerRight,
-                                  child: Text(
-                                    "Forgot Password?",
-                                    style: TextStyle(
-                                      fontSize: 12,
-                                      color: Color(0xFF8E7CFF),
-                                    ),
-                                  ),
-                                ),
-                                const SizedBox(height: 20),
-                                _ctaButton("Sign Up"),
-                                const SizedBox(height: 18),
-                                const Row(
-                                  children: [
-                                    Expanded(child: Divider()),
-                                    Padding(
-                                      padding:
-                                          EdgeInsets.symmetric(horizontal: 8),
-                                      child: Text("OR"),
-                                    ),
-                                    Expanded(child: Divider()),
-                                  ],
-                                ),
-                                const SizedBox(height: 16),
+                           child: Column(
+  children: [
+    const Text(
+      "Create your Amaan account",
+      textAlign: TextAlign.center,
+      style: TextStyle(
+        fontSize: 20,
+        fontWeight: FontWeight.w800,
+        color: Color(0xFF2D2350),
+      ),
+    ),
+    const SizedBox(height: 6),
+    const Text(
+      "Set up your safety profile to continue",
+      textAlign: TextAlign.center,
+      style: TextStyle(
+        fontSize: 13,
+        color: Color(0xFF7B728F),
+      ),
+    ),
+    const SizedBox(height: 20),
+    _field(
+      controller: firstNameController,
+      label: "First Name",
+      icon: Icons.person_outline,
+    ),
+    const SizedBox(height: 14),
+    _field(
+      controller: lastNameController,
+      label: "Last Name",
+      icon: Icons.person_outline,
+    ),
+    const SizedBox(height: 14),
+    _field(
+      controller: ageController,
+      label: "Age",
+      icon: Icons.cake_outlined,
+    ),
+    const SizedBox(height: 14),
+    _field(
+      controller: emailController,
+      label: "Email",
+      icon: Icons.email_outlined,
+    ),
+    const SizedBox(height: 14),
+    _field(
+      controller: passController,
+      label: "Password",
+      icon: Icons.lock_outline,
+      isPassword: true,
+    ),
+    const SizedBox(height: 14),
+    _field(
+      controller: confirmPassController,
+      label: "Confirm Password",
+      icon: Icons.lock_reset_outlined,
+      isPassword: true,
+    ),
+    const SizedBox(height: 20),
+    _ctaButton("Register"),
+    const SizedBox(height: 18),
+    const Row(
+      children: [
+        Expanded(child: Divider()),
+        Padding(
+          padding: EdgeInsets.symmetric(horizontal: 8),
+          child: Text("OR"),
+        ),
+        Expanded(child: Divider()),
+      ],
+    ),
+    const SizedBox(height: 16),
 
-                                /// GOOGLE BUTTON
-                                GestureDetector(
-                                  onTap: _signInWithGoogle,
-                                  child: _social(
-                                    "Continue with Google",
-                                    "assets/google.png",
-                                  ),
-                                ),
-                                const SizedBox(height: 10),
-
-                                /// FACEBOOK BUTTON
-                                GestureDetector(
-                                  onTap: _signInWithFacebook,
-                                  child: _social(
-                                    "Continue with Facebook",
-                                    "assets/facebook.png",
-                                  ),
-                                ),
-                                const SizedBox(height: 18),
+    /// GOOGLE BUTTON
+    GestureDetector(
+      onTap: _signInWithGoogle,
+      child: _social(
+        "Continue with Google",
+        "assets/google.png",
+      ),
+    ),
+    const SizedBox(height: 18),
                                 Row(
                                   mainAxisAlignment: MainAxisAlignment.center,
                                   children: [
