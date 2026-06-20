@@ -9,7 +9,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 
-import 'signin_screen.dart';
+
 
 class AuthScreen extends StatefulWidget {
   const AuthScreen({super.key});
@@ -362,15 +362,9 @@ class _AuthScreenState extends State<AuthScreen> with TickerProviderStateMixin {
                                   children: [
                                     const Text("Already have an account? "),
                                     GestureDetector(
-                                      onTap: () {
-                                        Navigator.push(
-                                          context,
-                                          MaterialPageRoute(
-                                            builder: (_) =>
-                                                const SignInScreen(),
-                                          ),
-                                        );
-                                      },
+                                     onTap: () {
+  Navigator.pop(context);
+},
                                       child: const Text(
                                         "Sign In",
                                         style: TextStyle(

@@ -4,7 +4,8 @@ import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'home_screen.dart';
-
+import 'package:google_sign_in/google_sign_in.dart';
+import 'auth_screen.dart';
 class SignInScreen extends StatefulWidget {
   const SignInScreen({super.key});
 
@@ -136,6 +137,60 @@ class _SignInScreenState extends State<SignInScreen>
       setState(() => _loading = false);
     }
   }
+  Future<void> _signInWithGoogle() async {
+  try {
+    const webClientId =
+        '934887910341-u7rvsd8pj9solgbju5ni4fsblmtkebau.apps.googleusercontent.com';
+
+    final googleSignIn = GoogleSignIn.instance;
+
+    await googleSignIn.initialize(
+      serverClientId: webClientId,
+    );
+
+    final googleUser = await googleSignIn.authenticate();
+
+    const scopes = <String>['email', 'profile'];
+
+    final authorization =
+        await googleUser.authorizationClient.authorizationForScopes(scopes) ??
+            await googleUser.authorizationClient.authorizeScopes(scopes);
+
+    final idToken = googleUser.authentication.idToken;
+
+    if (idToken == null) {
+      throw const AuthException('No Google ID token found.');
+    }
+
+    await Supabase.instance.client.auth.signInWithIdToken(
+      provider: OAuthProvider.google,
+      idToken: idToken,
+      accessToken: authorization.accessToken,
+    );
+
+    if (!mounted) return;
+
+    Navigator.pushAndRemoveUntil(
+      context,
+      MaterialPageRoute(builder: (_) => const HomeScreen()),
+      (route) => false,
+    );
+  } on GoogleSignInException catch (e) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          "Google sign-in cancelled or failed: ${e.description}",
+        ),
+      ),
+    );
+  } catch (e) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text("Google error: $e")),
+    );
+  }
+}
 
   @override
   Widget build(BuildContext context) {
@@ -282,12 +337,50 @@ class _SignInScreenState extends State<SignInScreen>
                                   ),
                                 ),
                                 const SizedBox(height: 20),
-                                _ctaButton("Login"),
-                                const SizedBox(height: 12),
-                                TextButton(
-                                  onPressed: () => Navigator.pop(context),
-                                  child: const Text("Back"),
-                                ),
+_ctaButton("Sign In"),
+const SizedBox(height: 18),
+const Row(
+  children: [
+    Expanded(child: Divider()),
+    Padding(
+      padding: EdgeInsets.symmetric(horizontal: 8),
+      child: Text("OR"),
+    ),
+    Expanded(child: Divider()),
+  ],
+),
+const SizedBox(height: 16),
+GestureDetector(
+  onTap: _signInWithGoogle,
+  child: _social(
+    "Continue with Google",
+    "assets/google.png",
+  ),
+),
+const SizedBox(height: 18),
+Row(
+  mainAxisAlignment: MainAxisAlignment.center,
+  children: [
+    const Text("Don’t have an account? "),
+    GestureDetector(
+      onTap: () {
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (_) => const AuthScreen(),
+          ),
+        );
+      },
+      child: const Text(
+        "Sign Up",
+        style: TextStyle(
+          color: Color(0xFF8E7CFF),
+          fontWeight: FontWeight.w600,
+        ),
+      ),
+    ),
+  ],
+),
                               ],
                             ),
                           ),
@@ -398,6 +491,28 @@ class _SignInScreenState extends State<SignInScreen>
       ),
     );
   }
+  Widget _social(String text, String imagePath) {
+  return Container(
+    width: double.infinity,
+    padding: const EdgeInsets.symmetric(vertical: 13),
+    decoration: BoxDecoration(
+      borderRadius: BorderRadius.circular(25),
+      border: Border.all(color: Colors.grey.shade300),
+      color: Colors.white,
+    ),
+    child: Row(
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: [
+        Image.asset(imagePath, height: 22),
+        const SizedBox(width: 10),
+        Text(
+          text,
+          style: GoogleFonts.poppins(fontWeight: FontWeight.w500),
+        ),
+      ],
+    ),
+  );
+}
 
   Widget _glow(
     double? top,

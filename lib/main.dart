@@ -2,9 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:amaan_app/screens/home_screen.dart';
-
-import 'firebase_options.dart';
 import 'package:amaan_app/screens/intro_screen.dart';
+import 'firebase_options.dart';
+
 import 'package:amaan_app/constants/app_theme_controller.dart';
 
 Future<void> main() async {
